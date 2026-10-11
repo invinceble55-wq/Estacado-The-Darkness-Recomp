@@ -19,6 +19,7 @@ anisotropic_override = 5
 
 [general]
 language = "english"
+achievement_notifications = true
 
 [graphics]
 motion_blur = false

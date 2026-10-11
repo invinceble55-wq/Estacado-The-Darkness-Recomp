@@ -123,6 +123,9 @@ const std::vector<PcEditableSettingSpec>& PcEditableSettingsSchema() {
          PcSettingEditorKind::Number, 0.01, 10.0, 0.01, {}, true, 1.0},
         {"input.mouse_invert_y", L"Controls", L"Invert mouse Y",
          PcSettingEditorKind::Boolean, 0.0, 1.0, 1.0, {}},
+        // #22: the in-game toast for each new achievement (live).
+        {"general.achievement_notifications", L"Achievements",
+         L"Achievement notifications", PcSettingEditorKind::Boolean, 0.0, 1.0, 1.0, {}},
         // V404: its own section (first), with Arabic for the interface (the
         // game itself stays English until an Arabic language pack exists).
         {"general.language", L"Language", L"Language (\u0627\u0644\u0644\u063a\u0629)",
@@ -299,6 +302,11 @@ const PcSettingPresentation& PcSettingPresentationFor(std::string_view key) {
           L"original shows until its replacement is ready) and then stays in video memory. "
           L"Off loads nothing: the game looks and runs as before.",
           {}, {}, false, false}},
+        {"general.achievement_notifications",
+         {L"Shows \"Achievement unlocked\" with its name at the bottom right of the game when "
+          L"you earn one. Your unlocks are kept either way (in the saves folder, "
+          L"content\\achievements).",
+          {}, {}, false, true}},
         {"camera.field_of_view",
          {L"How wide the view is, in horizontal degrees on a 16:9 screen (wider screens see "
           L"more at the sides). The original is 86. Zooming keeps its magnification.",
@@ -370,7 +378,7 @@ const PcSettingPresentation& PcSettingPresentationFor(std::string_view key) {
 std::vector<std::wstring_view> PcEditableSettingsSections() {
     std::vector<std::wstring_view> sections{L"Language", L"Display", L"Graphics Quality",
         L"Performance / Frame Rate", L"Camera", L"Controls", L"Key bindings", L"Audio",
-        L"Advanced"};
+        L"Achievements", L"Advanced"};
     for (const auto& setting : PcEditableSettingsSchema()) {
         if (std::find(sections.begin(), sections.end(), setting.section) == sections.end()) {
             sections.push_back(setting.section);

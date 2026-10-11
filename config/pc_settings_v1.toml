@@ -66,6 +66,9 @@ anisotropic_override = 5
 # follows the Windows display language like the console's dashboard language
 # (English when the game does not ship that language).
 language = "auto"
+# Shows a toast in the game window for each newly unlocked achievement. The
+# unlocks are stored either way (content/achievements/545407EE.toml).
+achievement_notifications = true
 
 [graphics]
 # false selects the exact sibling shader permutations that remove only the

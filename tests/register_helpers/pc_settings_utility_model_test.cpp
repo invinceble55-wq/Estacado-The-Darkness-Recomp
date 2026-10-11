@@ -116,7 +116,7 @@ int main() {
                         L"C:\\Game\\TheDarkness.exe --edit-config --set-config audio.master_volume=0.5 --overwrite-config",
                     "current-settings edit must not reload a packaged preset");
     passed &= Check(kPcEditableSettingsSchemaVersion == 1 &&
-                        schema.size() == 55 &&
+                        schema.size() == 56 &&
                         FindPcEditableSetting("graphics.msaa_mode") &&
                         FindPcEditableSetting("graphics.glow_reconstruction") &&
                         FindPcEditableSetting("input.button_prompts") &&
@@ -158,7 +158,7 @@ int main() {
     const auto sections = PcEditableSettingsSections();
     passed &= Check(sections == std::vector<std::wstring_view>{L"Language", L"Display", L"Graphics Quality",
                         L"Performance / Frame Rate", L"Camera", L"Controls", L"Key bindings",
-                        L"Audio", L"Advanced"},
+                        L"Audio", L"Achievements", L"Advanced"},
                     "settings categories must be unique, ordered and cover the schema");
     for (const auto section : sections) {
         size_t count = 0;

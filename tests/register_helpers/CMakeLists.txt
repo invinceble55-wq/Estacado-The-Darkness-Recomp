@@ -195,6 +195,7 @@ add_executable(runtime_import_test runtime_import_test.cpp
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_tls.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_threads.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_xam.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_achievement_store.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/verified_imports.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_video_mode.cpp")
 target_include_directories(runtime_import_test PRIVATE
@@ -831,6 +832,23 @@ target_compile_options(runtime_language_install_test PRIVATE /EHsc)
 target_compile_features(runtime_language_install_test PRIVATE cxx_std_17)
 target_link_libraries(runtime_language_install_test PRIVATE bcrypt winhttp tomlplusplus::tomlplusplus)
 add_test(NAME runtime_language_install COMMAND runtime_language_install_test)
+# #22 achievement unlocks in ReXGlue's TOML format.
+add_executable(runtime_achievement_store_test runtime_achievement_store_test.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_achievement_store.cpp")
+target_include_directories(runtime_achievement_store_test PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime")
+target_compile_options(runtime_achievement_store_test PRIVATE /EHsc)
+target_compile_features(runtime_achievement_store_test PRIVATE cxx_std_17)
+add_test(NAME runtime_achievement_store COMMAND runtime_achievement_store_test)
+# #24 launcher update check: versions and the newest regular release.
+add_executable(runtime_update_check_test runtime_update_check_test.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_update_check.cpp")
+target_include_directories(runtime_update_check_test PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime")
+target_compile_options(runtime_update_check_test PRIVATE /EHsc)
+target_compile_features(runtime_update_check_test PRIVATE cxx_std_17)
+target_link_libraries(runtime_update_check_test PRIVATE winhttp)
+add_test(NAME runtime_update_check COMMAND runtime_update_check_test)
 # V338 measured automatic settings: decision logic with synthetic timings.
 add_executable(runtime_gpu_calibration_test runtime_gpu_calibration_test.cpp
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_gpu_calibration_model.cpp")
@@ -921,6 +939,21 @@ target_include_directories(settings_ui_schema_test PRIVATE
 target_compile_features(settings_ui_schema_test PRIVATE cxx_std_20)
 target_link_libraries(settings_ui_schema_test PRIVATE tomlplusplus::tomlplusplus)
 add_test(NAME settings_ui_schema COMMAND settings_ui_schema_test)
+
+# 7b interface languages from files (config/ui_languages).
+add_executable(ui_language_test ui_language_test.cpp
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/ui_language.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/pc_settings_schema.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/pc_settings_ui.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/pc_settings_arabic.cpp"
+    "${DARKNESS_TEST_REXGLUE}/src/ui/settings_schema.cpp")
+target_compile_definitions(ui_language_test PRIVATE
+    DARKNESS_SOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/../..")
+target_include_directories(ui_language_test PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime" "${DARKNESS_TEST_REXGLUE}/include")
+target_compile_features(ui_language_test PRIVATE cxx_std_20)
+target_link_libraries(ui_language_test PRIVATE tomlplusplus::tomlplusplus)
+add_test(NAME ui_language COMMAND ui_language_test)
 
 add_executable(runtime_graphics_cache_test runtime_graphics_cache_test.cpp
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_graphics_cache.cpp")

@@ -1402,6 +1402,13 @@ PPC_FUNC(__imp__XMsgStartIORequest) {
                         userIndex, achievementId);
                     if (result == GuestAchievementUnlockResult::Unlocked) {
                         ++unlocked;
+                        // #22: the console's "Achievement unlocked" toast.
+                        for (const auto& entry : catalog) {
+                            if (entry.id != achievementId) continue;
+                            RuntimeGraphicsShowAchievement(entry.id, entry.label.c_str(),
+                                                           entry.gamerscore);
+                            break;
+                        }
                     } else if (result == GuestAchievementUnlockResult::AlreadyUnlocked) {
                         ++alreadyUnlocked;
                     } else {

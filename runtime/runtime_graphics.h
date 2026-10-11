@@ -67,6 +67,11 @@ void RuntimeGraphicsGuestSwapQueued() noexcept;
 // Whether the title shows a menu, the title screen or loading (the plugin
 // paces those by display.menu_frame_rate): 0 gameplay, 1 menu.
 void RuntimeGraphicsSetMenuState(uint32_t state) noexcept;
+// #22: an achievement toast in the game window (general.achievement_notifications,
+// live). The label is UTF-8.
+void ConfigureRuntimeAchievementNotifications(bool enabled) noexcept;
+void RuntimeGraphicsShowAchievement(uint32_t id, const char* label,
+                                    uint32_t gamerscore) noexcept;
 // The GPU busy time of the most recent frames in microseconds, oldest first
 // (the plugin's GPU frame meter). Returns the number copied; totalFrames
 // receives the number measured so far (0 without a meter).

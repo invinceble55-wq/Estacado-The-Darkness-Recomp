@@ -26,7 +26,7 @@ add_custom_command(
         -SharedHeader "${PPC_DIR}/ppc_recomp_shared.h" -Output "${IMPORT_TRAPS}"
     DEPENDS "${PPC_DIR}/ppc_recomp_shared.h" "${CMAKE_CURRENT_LIST_DIR}/generate_import_traps.ps1")
 
-add_executable(TheDarkness main.cpp pc_settings_schema.cpp runtime_audio.cpp runtime_camera.cpp runtime_camera_submission.cpp runtime_movement_packet.cpp runtime_motion_origins.cpp runtime_motion_delta.cpp runtime_temporal_camera.cpp runtime_diagnostics.cpp runtime_fatal.cpp runtime_filesystem.cpp runtime_frame_wait.cpp runtime_function_trace.cpp runtime_graphics.cpp runtime_graphics_cache.cpp runtime_input.cpp runtime_job_poll_wake.cpp runtime_memory.cpp runtime_mouse_look.cpp runtime_msaa_mode.cpp runtime_stick_look.cpp runtime_widescreen.cpp runtime_video_mode.cpp runtime_language_pack.cpp runtime_button_prompts.cpp runtime_button_prompt_hooks.cpp runtime_mmio.cpp runtime_modules.cpp runtime_mods.cpp runtime_objects.cpp runtime_package_validation.cpp runtime_pc_settings.cpp runtime_user_data.cpp runtime_game_setup.cpp runtime_auto_scale.cpp runtime_gpu_calibration.cpp runtime_gpu_calibration_model.cpp runtime_gpu_calibration_store.cpp pc_settings_ui.cpp pc_settings_arabic.cpp runtime_settings_service.cpp "${CMAKE_CURRENT_LIST_DIR}/../external/ReXGlue/src/ui/settings_schema.cpp" runtime_single_instance.cpp runtime_sync.cpp runtime_title_notifications.cpp runtime_tls.cpp runtime_threads.cpp runtime_xam.cpp verified_imports.cpp "${IMPORT_TRAPS}" ${GENERATED_SOURCES})
+add_executable(TheDarkness main.cpp pc_settings_schema.cpp runtime_audio.cpp runtime_camera.cpp runtime_camera_submission.cpp runtime_movement_packet.cpp runtime_motion_origins.cpp runtime_motion_delta.cpp runtime_temporal_camera.cpp runtime_diagnostics.cpp runtime_fatal.cpp runtime_filesystem.cpp runtime_frame_wait.cpp runtime_function_trace.cpp runtime_graphics.cpp runtime_graphics_cache.cpp runtime_input.cpp runtime_job_poll_wake.cpp runtime_memory.cpp runtime_mouse_look.cpp runtime_msaa_mode.cpp runtime_stick_look.cpp runtime_widescreen.cpp runtime_video_mode.cpp runtime_language_pack.cpp runtime_button_prompts.cpp runtime_button_prompt_hooks.cpp runtime_mmio.cpp runtime_modules.cpp runtime_mods.cpp runtime_objects.cpp runtime_package_validation.cpp runtime_pc_settings.cpp runtime_user_data.cpp runtime_game_setup.cpp runtime_auto_scale.cpp runtime_gpu_calibration.cpp runtime_gpu_calibration_model.cpp runtime_gpu_calibration_store.cpp pc_settings_ui.cpp pc_settings_arabic.cpp runtime_settings_service.cpp ui_language.cpp "${CMAKE_CURRENT_LIST_DIR}/../external/ReXGlue/src/ui/settings_schema.cpp" runtime_single_instance.cpp runtime_sync.cpp runtime_title_notifications.cpp runtime_tls.cpp runtime_threads.cpp runtime_xam.cpp runtime_achievement_store.cpp verified_imports.cpp "${IMPORT_TRAPS}" ${GENERATED_SOURCES})
 target_include_directories(TheDarkness PRIVATE "${CMAKE_CURRENT_LIST_DIR}" "${PPC_DIR}" "${SIMDE_DIR}"
     "${CMAKE_CURRENT_LIST_DIR}/../external/XenonRecomp/thirdparty/TinySHA1"
     "${CMAKE_CURRENT_LIST_DIR}/../external/XenonRecomp/XenonUtils"
@@ -79,7 +79,7 @@ target_link_libraries(TheDarkness PRIVATE XenonUtils bcrypt winmm tomlplusplus::
 set(DARKNESS_IMGUI_DIR "${CMAKE_CURRENT_LIST_DIR}/../external/ReXGlue/thirdparty/imgui")
 set(DARKNESS_REXGLUE_DIR "${CMAKE_CURRENT_LIST_DIR}/../external/ReXGlue")
 add_executable(TheDarknessSettings WIN32
-    settings_launcher.cpp runtime_user_data.cpp runtime_game_setup.cpp runtime_language_install.cpp pc_settings_ui.cpp pc_settings_arabic.cpp pc_settings_utility_model.cpp
+    settings_launcher.cpp runtime_user_data.cpp runtime_game_setup.cpp runtime_language_install.cpp runtime_update_check.cpp ui_language.cpp pc_settings_ui.cpp pc_settings_arabic.cpp pc_settings_utility_model.cpp
     pc_settings_schema.cpp runtime_single_instance.cpp runtime_auto_scale.cpp runtime_gpu_calibration_model.cpp runtime_gpu_calibration_store.cpp
     "${DARKNESS_REXGLUE_DIR}/src/ui/settings_panel.cpp"
     "${DARKNESS_REXGLUE_DIR}/src/ui/settings_schema.cpp"
@@ -139,6 +139,22 @@ endforeach()
 add_custom_target(TheDarknessPcPresets
     DEPENDS ${DARKNESS_PC_PRESET_OUTPUTS})
 add_dependencies(TheDarknessSettings TheDarknessPcPresets)
+# 7b interface languages: config/ui_languages/<code>.toml -> languages/.
+set(DARKNESS_UI_LANGUAGE_NAMES ru)
+set(DARKNESS_UI_LANGUAGE_OUTPUTS)
+foreach(language_name IN LISTS DARKNESS_UI_LANGUAGE_NAMES)
+    set(language_source "${CMAKE_CURRENT_LIST_DIR}/../config/ui_languages/${language_name}.toml")
+    set(language_output "${CMAKE_CURRENT_BINARY_DIR}/languages/${language_name}.toml")
+    add_custom_command(
+        OUTPUT "${language_output}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/languages"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${language_source}" "${language_output}"
+        DEPENDS "${language_source}"
+        COMMENT "Synchronizing interface language ${language_name}")
+    list(APPEND DARKNESS_UI_LANGUAGE_OUTPUTS "${language_output}")
+endforeach()
+add_custom_target(TheDarknessUiLanguages DEPENDS ${DARKNESS_UI_LANGUAGE_OUTPUTS})
+add_dependencies(TheDarknessSettings TheDarknessUiLanguages)
 
 # ReXGlue is a multi-config build and places deployable DLLs in a
 # configuration subdirectory (for example, out/win-amd64/Release). Pointing at

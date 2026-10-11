@@ -1,5 +1,6 @@
 #include "runtime_xam.h"
 
+#include "runtime_achievement_store.h"
 #include "runtime_filesystem.h"
 
 #ifndef NOMINMAX
@@ -13,6 +14,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 
 namespace {
@@ -34,6 +36,38 @@ std::filesystem::path AchievementStorePath(uint32_t titleId) {
     title << std::uppercase << std::hex << std::setw(8) << std::setfill(L'0') << titleId;
     return GuestPortableContentDeviceRoot() / title.str() / L"Profile" /
            L"achievements.txt";
+}
+
+std::filesystem::path AchievementTomlPath(uint32_t titleId) {
+    if (!titleId) return {};
+    std::wostringstream title;
+    title << std::uppercase << std::hex << std::setw(8) << std::setfill(L'0') << titleId;
+    return GuestPortableContentDeviceRoot() / L"achievements" / (title.str() + L".toml");
+}
+
+// Atomic replace through a temporary file beside the target.
+bool WriteFileAtomically(const std::filesystem::path& path, const std::string& text) {
+    std::error_code error;
+    std::filesystem::create_directories(path.parent_path(), error);
+    if (error) return false;
+    const auto parentStatus = std::filesystem::symlink_status(path.parent_path(), error);
+    if (error || !std::filesystem::is_directory(parentStatus) ||
+        std::filesystem::is_symlink(parentStatus))
+        return false;
+    const std::filesystem::path temporary = path.wstring() + L".tmp";
+    {
+        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+        if (!output) return false;
+        output << text;
+        output.flush();
+        if (!output) return false;
+    }
+    if (!MoveFileExW(temporary.c_str(), path.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        std::filesystem::remove(temporary, error);
+        return false;
+    }
+    return true;
 }
 }
 
@@ -132,7 +166,66 @@ bool GuestXamState::ConfigureAchievementCatalog(
             return false;
         }
     }
-    return LoadAchievementStoreLocked();
+    if (!LoadAchievementStoreLocked()) return false;
+    LoadAchievementTomlLocked();
+    return true;
+}
+
+void GuestXamState::LoadAchievementTomlLocked() {
+    namespace store = darkness::achievement_store;
+    const std::filesystem::path path = AchievementTomlPath(achievementTitleId_);
+    if (path.empty()) return;
+    const size_t legacy = unlockedAchievements_.size();
+    store::Unlocks unlocks;
+    bool present = false;
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    if (!error && std::filesystem::exists(status)) {
+        present = true;
+        std::string text;
+        if (std::filesystem::is_regular_file(status)) {
+            std::ifstream input(path, std::ios::binary);
+            text.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+        }
+        if (!std::filesystem::is_regular_file(status) || !store::ParseToml(text, unlocks)) {
+            // Kept aside, never overwritten: the next save starts a new file
+            // from the unlocks that could be read.
+            const std::filesystem::path aside = path.wstring() + L".unreadable";
+            std::filesystem::rename(path, aside, error);
+            std::wcout << L"ACHIEVEMENT_STORE_TOML unreadable=1 moved=" << aside.wstring()
+                       << L" ok=" << (error ? 0 : 1) << L'\n';
+            present = false;
+        }
+    }
+    const uint64_t now = CurrentFileTime();
+    size_t added = 0;
+    for (const auto& [id, filetime] : unlocks) {
+        if (!knownAchievementIds_.count(id)) continue;  // not this title's
+        if (unlockedAchievements_.emplace(id, filetime ? filetime : now).second) ++added;
+    }
+    // Migration: unlocks only the legacy file had go into the TOML store.
+    bool migrate = !present && legacy;
+    for (const auto& [id, filetime] : unlockedAchievements_) {
+        if (!unlocks.count(id)) migrate = true;
+    }
+    if (migrate && !SaveAchievementTomlLocked()) {
+        std::cout << "ACHIEVEMENT_STORE_TOML migrate_failed=1\n";
+    }
+    if (added && !SaveAchievementStoreLocked()) {
+        std::cout << "ACHIEVEMENT_STORE_LEGACY_SAVE failed=1\n";
+    }
+    std::wcout << L"ACHIEVEMENT_STORE_TOML path=" << path.wstring()
+               << L" present=" << (present ? 1 : 0) << L" legacy=" << legacy
+               << L" toml_only=" << added << L" total=" << unlockedAchievements_.size()
+               << L" migrated=" << (migrate ? 1 : 0) << L'\n';
+}
+
+bool GuestXamState::SaveAchievementTomlLocked() const {
+    const std::filesystem::path path = AchievementTomlPath(achievementTitleId_);
+    if (path.empty()) return false;
+    darkness::achievement_store::Unlocks unlocks(unlockedAchievements_.begin(),
+                                                 unlockedAchievements_.end());
+    return WriteFileAtomically(path, darkness::achievement_store::FormatToml(unlocks));
 }
 
 GuestAchievementUnlockResult GuestXamState::UnlockAchievement(
@@ -148,10 +241,13 @@ GuestAchievementUnlockResult GuestXamState::UnlockAchievement(
     }
     const uint64_t fileTime = CurrentFileTime();
     unlockedAchievements_.emplace(achievementId, fileTime);
-    if (!SaveAchievementStoreLocked()) {
+    if (!SaveAchievementTomlLocked()) {
         unlockedAchievements_.erase(achievementId);
         return GuestAchievementUnlockResult::StorageFailure;
     }
+    // Older versions read only the legacy file (best effort).
+    if (!SaveAchievementStoreLocked())
+        std::cout << "ACHIEVEMENT_STORE_LEGACY_SAVE failed=1\n";
     if (unlockFileTime) *unlockFileTime = fileTime;
     return GuestAchievementUnlockResult::Unlocked;
 }

@@ -37,7 +37,9 @@ A Steam Deck preset is included. If you copy the folder to a Deck, see
   keys (on-screen prompts show your keys), or a controller; adjustable field
   of view.
 - **Settings** in a launcher (presets: Enhanced, Performance, Original, Steam
-  Deck) and in an overlay over the running game (F1).
+  Deck) and in an overlay over the running game (F1), in English or Russian.
+- **Achievements** with an in-game notification, saved where achievement
+  trackers find them; the launcher tells you when a new version is out.
 - **Motion blur on/off** and support for **HD texture packs**: folder-based
   replacements made by players. No pack is included or provided (the game's
   textures belong to its publisher); [docs/HD_TEXTURE_PACKS.md](docs/HD_TEXTURE_PACKS.md)
@@ -146,6 +148,8 @@ launcher says so for each.
 - **Controls / Key bindings**: keyboard and mouse, mouse look, sensitivity,
   button prompts (automatic, Xbox buttons or keyboard keys), controller
   options.
+- **Audio**: master volume.
+- **Achievements**: the in-game notification.
 - **Language**.
 
 ## Languages
@@ -153,6 +157,13 @@ launcher says so for each.
 English, French, German, Italian and Spanish: the game's own languages, for
 its text and speech. Set *Language* in the launcher; *Automatic* follows the
 Windows display language.
+
+The launcher and the F1 settings are in English or Russian (they follow the
+Windows display language; the picker beside *About* chooses by hand). Each
+interface language is one file in the `languages` folder
+(`languages/ru.toml`: English text = translation), so corrections and new
+languages need no programming: edit or add a file and open an issue or a pull
+request with it.
 
 ## Known issues
 

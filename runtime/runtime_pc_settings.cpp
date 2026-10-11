@@ -1618,6 +1618,19 @@ double RuntimeAudioMasterVolumeFromPcConfig(
     return *value;
 }
 
+bool RuntimeAchievementNotificationsFromPcConfig(
+    const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot) {
+    if (!ConfigPresent(path, snapshot)) return true;
+    const toml::table config = ParseConfig(path, snapshot);
+    const toml::node* node = FindConfigNode(config, "general.achievement_notifications");
+    if (!node) return true;
+    const auto value = node->value<bool>();
+    if (!node->is_boolean() || !value) {
+        throw std::runtime_error("general.achievement_notifications must be a boolean");
+    }
+    return *value;
+}
+
 msaa_mode::Policy RuntimeMsaaModeFromPcConfig(
     const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot) {
     msaa_mode::Policy policy = msaa_mode::Policy::kAlways4x;

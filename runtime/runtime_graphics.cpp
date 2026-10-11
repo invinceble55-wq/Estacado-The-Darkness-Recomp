@@ -137,6 +137,7 @@ using XmaSetupFn = uint32_t (*)(void*, uint32_t);
 using XmaShutdownFn = void (*)(void*);
 using XmaAllocateFn = uint32_t (*)(void*);
 using SetMenuStateFn = void (*)(void*, uint32_t);
+using ShowAchievementFn = void (*)(void*, uint32_t, const char*, uint32_t);
 using GpuFrameBusyFn = uint32_t (*)(void*, uint32_t*, uint32_t, uint64_t*);
 using XmaReleaseFn = void (*)(void*, uint32_t);
 using XmaReadMmioFn = uint32_t (*)(void*, uint32_t);
@@ -173,6 +174,7 @@ struct GraphicsAdapter {
     TestPadButtonsFn test_pad_buttons{};
     CloseRequestedFn close_requested{};
     SetMenuStateFn set_menu_state{};
+    ShowAchievementFn show_achievement{};
     GpuFrameBusyFn gpu_frame_busy{};
     XmaSetupFn xma_setup{};
     XmaShutdownFn xma_shutdown{};
@@ -722,6 +724,8 @@ bool InitializeRuntimeGraphics(uint8_t* guest_virtual_base) {
             adapter.module, "rex_gpu_embedded_close_requested");
         adapter.set_menu_state = ResolveOptional<SetMenuStateFn>(
             adapter.module, "rex_gpu_embedded_set_menu_state");
+        adapter.show_achievement = ResolveOptional<ShowAchievementFn>(
+            adapter.module, "rex_gpu_embedded_show_achievement");
         adapter.guest_swap = ResolveOptional<GuestSwapFn>(
             adapter.module, "rex_gpu_embedded_guest_swap");
         adapter.frame_start = ResolveOptional<FrameStartFn>(
@@ -1561,6 +1565,22 @@ void RuntimeGraphicsSetMenuState(uint32_t state) noexcept {
     // reports what the title shows.
     if (adapter.set_menu_state && RuntimeGraphicsIsActive()) {
         adapter.set_menu_state(adapter.gpu, state);
+    }
+}
+
+namespace {
+std::atomic<bool> g_achievementNotifications{true};
+}
+
+void ConfigureRuntimeAchievementNotifications(bool enabled) noexcept {
+    g_achievementNotifications.store(enabled, std::memory_order_release);
+}
+
+void RuntimeGraphicsShowAchievement(uint32_t id, const char* label,
+                                    uint32_t gamerscore) noexcept {
+    if (!g_achievementNotifications.load(std::memory_order_acquire)) return;
+    if (adapter.show_achievement && RuntimeGraphicsIsActive()) {
+        adapter.show_achievement(adapter.gpu, id, label, gamerscore);
     }
 }
 

@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.9.7 (pre-release)
+
+- **Crash in the cemetery fixed** ([#25](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/25)): the dump showed
+  `std::bad_alloc` while opening a game file. The runtime's file system copied
+  every opened game file into memory whole (the voice archive
+  Streamed_Vo.xwc is 424 MB and the animation archive All.xac 204 MB; the
+  Chapter 1 opening alone opens them 9 and 11 times). Open files now keep a
+  host handle and are read at explicit offsets on demand, outside the file
+  system lock.
+- **Late voice lines**: probably the same cause (each open of the voice
+  archive read all 424 MB before the line could play); opens are now instant.
+- **Blinking prompt fixed** ([#18](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/18)): keyboard keycaps replace the
+  controller icon textures once per frame; a newly loaded or reloaded icon
+  texture drew the controller icon for its first frame. The keycap is now
+  shown from the load itself.
+- **Achievements** ([#22](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/22)): in-game "Achievement unlocked" toast
+  (setting `general.achievement_notifications`, live); unlocks stored in
+  `content/achievements/545407EE.toml` in ReXGlue's format
+  (`[unlocked.<id>] filetime = ...`), migrated from and still mirrored to the
+  legacy `content/545407EE/Profile/achievements.txt`.
+- **Update check** ([#24](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/24)): the launcher reads the public release list
+  once in the background and offers the release page of a newer version; can
+  be turned off in About (`launcher_prefs.toml`).
+- **Interface languages from files**: `languages/<code>.toml` (English text ->
+  translation) for the launcher and the F1 overlay, chosen automatically
+  from the Windows display language or by hand in the launcher; Russian
+  (`languages/ru.toml`) is the first. `scripts/extract-ui-strings.py
+  --missing` lists texts a language file lacks.
+- GPU PGO profile retrained (`config/pgo/rexgpu-v525.profdata`).
+
 ## 0.9.6 (pre-release)
 
 - **Black dots and flickering squares fixed**

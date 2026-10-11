@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <array>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -127,8 +128,12 @@ private:
     std::vector<GuestContentOverlay> contentOverlays_;
     std::unordered_map<std::string, std::string> symbolicLinks_;
     std::unordered_map<std::string, std::filesystem::path> hostMounts_;
+    // An open host file read and written at explicit offsets (#25: files are
+    // no longer copied into memory whole at open; the game's streamed audio
+    // and texture archives are hundreds of megabytes each).
+    struct HostFile;
     struct OpenFileData {
-        std::vector<uint8_t> bytes;
+        std::shared_ptr<HostFile> file;
         GuestFileAttributes attributes;
         std::string guestPath;
         std::filesystem::path hostPath;

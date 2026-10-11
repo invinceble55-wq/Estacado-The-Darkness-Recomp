@@ -93,6 +93,10 @@ Add-File (Join-Path $runtime 'TheDarkness.mods.example.toml') 'TheDarkness.mods.
 foreach ($preset in Get-ChildItem -LiteralPath (Join-Path $runtime 'presets') -Filter '*.toml') {
     Add-File $preset.FullName ('presets/' + $preset.Name)
 }
+# Interface languages (one file per language, ui_language.h).
+foreach ($language in Get-ChildItem -LiteralPath (Join-Path $runtime 'languages') -Filter '*.toml') {
+    Add-File $language.FullName ('languages/' + $language.Name)
+}
 
 # Optional SDK runtimes (present only when the build had the SDKs).
 $sdkRuntime = @(

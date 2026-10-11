@@ -15,6 +15,10 @@ struct RuntimeSettingsServiceConfig {
     std::filesystem::path examplePath;  // defaults; a run without configPath started from it
     bool persistence = false;           // false: safe mode or a packaged preset
     PcSettingsOffer offer;              // shelved settings this game folder offers
+    // 7b: the interface language the launcher chose (launcher_prefs.toml in
+    // the saves folder) from <program folder>/languages.
+    std::filesystem::path launcherPrefsPath;
+    std::filesystem::path languagesFolder;
 };
 
 void StartRuntimeSettingsService(const RuntimeSettingsServiceConfig& config);

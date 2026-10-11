@@ -47,6 +47,11 @@ private:
     static uint64_t ContextKey(uint32_t userIndex, uint32_t contextId);
     bool LoadAchievementStoreLocked();
     bool SaveAchievementStoreLocked() const;
+    // #22: <content>/achievements/<TITLEID>.toml (ReXGlue's format) is the
+    // store; the legacy Profile/achievements.txt is merged in and kept
+    // written for older versions.
+    void LoadAchievementTomlLocked();
+    bool SaveAchievementTomlLocked() const;
 
     mutable std::mutex mutex_;
     uint32_t language_ = 1;

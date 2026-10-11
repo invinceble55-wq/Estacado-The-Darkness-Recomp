@@ -887,6 +887,8 @@ int main(int argc, char** argv) {
             RuntimeAudioMasterVolumeFromPcConfig(startupPcConfigPath, &startupPcConfig));
         ConfigureRuntimeMsaaMode(
             RuntimeMsaaModeFromPcConfig(startupPcConfigPath, &startupPcConfig), "config");
+        ConfigureRuntimeAchievementNotifications(
+            RuntimeAchievementNotificationsFromPcConfig(startupPcConfigPath, &startupPcConfig));
         InitializeRuntimeMsaaModeDiagnostics();
         const uint32_t xboxLanguage =
             RuntimeXboxLanguageFromPcConfig(startupPcConfigPath, &startupPcConfig);
@@ -1117,6 +1119,8 @@ int main(int argc, char** argv) {
             settingsService.persistence = startupPcConfig.present() &&
                                           configDirectory != presetDirectory;
             settingsService.offer = PcSettingsOfferFor(userData.localData, executableDirectory);
+            settingsService.launcherPrefsPath = userData.root / L"launcher_prefs.toml";
+            settingsService.languagesFolder = executableDirectory / L"languages";
             StartRuntimeSettingsService(settingsService);
         }
         auto* base = guestMemory.base;

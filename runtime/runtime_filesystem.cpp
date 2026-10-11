@@ -3,12 +3,55 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 
 #include <Windows.h>
+
+struct GuestFileSystem::HostFile {
+    void* handle = INVALID_HANDLE_VALUE;
+    uint64_t size{};
+    HostFile() = default;
+    HostFile(const HostFile&) = delete;
+    HostFile& operator=(const HostFile&) = delete;
+    ~HostFile() {
+        if (handle != INVALID_HANDLE_VALUE) CloseHandle(static_cast<HANDLE>(handle));
+    }
+    // Positional I/O (OVERLAPPED offset on a synchronous handle): safe from
+    // several threads at once, no shared file pointer.
+    bool ReadAt(uint64_t offset, uint8_t* destination, uint32_t count) const {
+        while (count) {
+            OVERLAPPED at{};
+            at.Offset = DWORD(offset);
+            at.OffsetHigh = DWORD(offset >> 32);
+            DWORD done{};
+            if (!ReadFile(static_cast<HANDLE>(handle), destination, count, &done, &at) || !done)
+                return false;
+            offset += done;
+            destination += done;
+            count -= done;
+        }
+        return true;
+    }
+    bool WriteAt(uint64_t offset, const uint8_t* source, uint32_t count) const {
+        while (count) {
+            OVERLAPPED at{};
+            at.Offset = DWORD(offset);
+            at.OffsetHigh = DWORD(offset >> 32);
+            DWORD done{};
+            if (!WriteFile(static_cast<HANDLE>(handle), source, count, &done, &at) || !done)
+                return false;
+            offset += done;
+            source += done;
+            count -= done;
+        }
+        return true;
+    }
+};
 
 namespace {
 constexpr char kRawCachePartition[] = "\\Device\\Harddisk0\\partition0";
@@ -727,21 +770,26 @@ GuestFileOpenResult GuestFileSystem::CreateOrOpenGameFile(
         }
     }
 
-    std::ifstream input(hostPath, std::ios::binary | std::ios::ate);
-    if (!input) {
+    // Keep the host file open and read it on demand: copying a whole file
+    // into memory at open made opening the 424 MB voice archive take seconds
+    // and several open archives exhaust memory (#25).
+    const bool hostWritable = hostMounted && writeRequested;
+    auto file = std::make_shared<HostFile>();
+    file->handle = CreateFileW(hostPath.c_str(),
+        GENERIC_READ | (hostWritable ? GENERIC_WRITE : 0),
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    LARGE_INTEGER hostSize{};
+    if (file->handle == INVALID_HANDLE_VALUE ||
+        !GetFileSizeEx(static_cast<HANDLE>(file->handle), &hostSize) ||
+        hostSize.QuadPart < 0 || uint64_t(hostSize.QuadPart) > UINT32_MAX) {
         result.status = GuestFileOpenStatus::AccessDenied;
         return result;
     }
-    const std::streamsize size = input.tellg();
-    if (size < 0 || uint64_t(size) > UINT32_MAX) {
-        result.status = GuestFileOpenStatus::AccessDenied;
-        return result;
-    }
-    std::vector<uint8_t> bytes(static_cast<size_t>(size));
-    input.seekg(0);
-    if (size && !input.read(reinterpret_cast<char*>(bytes.data()), size)) {
-        result.status = GuestFileOpenStatus::AccessDenied;
-        return result;
+    file->size = uint64_t(hostSize.QuadPart);
+    if (file->size >= (16u << 20) && std::getenv("DARKNESS_LARGE_FILE_TRACE")) {
+        std::fprintf(stderr, "REX_LARGE_FILE_OPEN path=%s size=%llu\n", guestPath.c_str(),
+                     static_cast<unsigned long long>(file->size));
     }
     GuestFileAttributes attributes{};
     if (!ReadHostAttributes(hostPath, &attributes)) {
@@ -751,7 +799,7 @@ GuestFileOpenResult GuestFileSystem::CreateOrOpenGameFile(
 
     std::lock_guard<std::mutex> lock(mutex_);
     const uint32_t handle = nextHandle_++;
-    gameFileHandles_.emplace(handle, OpenFileData{std::move(bytes), attributes,
+    gameFileHandles_.emplace(handle, OpenFileData{std::move(file), attributes,
         guestPath, hostPath, synchronous, hostMounted && writeRequested,
         hostMounted && deleteRequested});
     result.status = GuestFileOpenStatus::Success;
@@ -931,10 +979,13 @@ GuestFileWriteResult GuestFileSystem::SetOpenFileLength(uint32_t handle, uint64_
     if (!file->second.writable || length > UINT32_MAX)
         return GuestFileWriteResult::AccessDenied;
 
-    std::error_code error;
-    std::filesystem::resize_file(file->second.hostPath, length, error);
-    if (error) return GuestFileWriteResult::AccessDenied;
-    file->second.bytes.resize(static_cast<size_t>(length), 0);
+    HostFile& host = *file->second.file;
+    LARGE_INTEGER end{};
+    end.QuadPart = LONGLONG(length);
+    if (!SetFilePointerEx(static_cast<HANDLE>(host.handle), end, nullptr, FILE_BEGIN) ||
+        !SetEndOfFile(static_cast<HANDLE>(host.handle)))
+        return GuestFileWriteResult::AccessDenied;
+    host.size = length;
     ReadHostAttributes(file->second.hostPath, &file->second.attributes);
     return GuestFileWriteResult::Success;
 }
@@ -997,14 +1048,22 @@ bool GuestFileSystem::QueryVolumeSize(uint32_t handle, GuestVolumeSizeInformatio
 bool GuestFileSystem::Read(uint32_t handle, uint64_t offset, uint8_t* destination,
                            uint32_t byteCount, uint32_t* bytesRead,
                            bool useCurrentPosition) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    const auto file = gameFileHandles_.find(handle);
-    if (file == gameFileHandles_.end() || !destination) return false;
-    if (useCurrentPosition) offset = file->second.currentPosition;
-    if (offset > file->second.bytes.size()) return false;
-    const uint32_t count = static_cast<uint32_t>(std::min<uint64_t>(byteCount, file->second.bytes.size() - offset));
-    if (count) std::memcpy(destination, file->second.bytes.data() + offset, count);
-    if (useCurrentPosition) file->second.currentPosition += count;
+    std::shared_ptr<HostFile> host;
+    uint32_t count{};
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto file = gameFileHandles_.find(handle);
+        if (file == gameFileHandles_.end() || !destination) return false;
+        if (useCurrentPosition) offset = file->second.currentPosition;
+        host = file->second.file;
+        const uint64_t size = host->size;
+        if (offset > size) return false;
+        count = static_cast<uint32_t>(std::min<uint64_t>(byteCount, size - offset));
+        if (useCurrentPosition) file->second.currentPosition += count;
+    }
+    // The disk read runs outside the filesystem lock, so streams on other
+    // threads (music, voice, textures) are never queued behind it.
+    if (count && !host->ReadAt(offset, destination, count)) return false;
     if (bytesRead) *bytesRead = count;
     return true;
 }
@@ -1023,20 +1082,10 @@ GuestFileWriteResult GuestFileSystem::Write(uint32_t handle, uint64_t offset,
     const uint64_t end = offset + uint64_t(byteCount);
     if (end < offset || end > UINT32_MAX) return GuestFileWriteResult::AccessDenied;
 
-    std::fstream output(file->second.hostPath,
-                        std::ios::binary | std::ios::in | std::ios::out);
-    if (!output) return GuestFileWriteResult::AccessDenied;
-    if (byteCount) {
-        output.seekp(static_cast<std::streamoff>(offset));
-        output.write(reinterpret_cast<const char*>(source), byteCount);
-        output.flush();
-        if (!output) return GuestFileWriteResult::AccessDenied;
-    }
-
-    if (end > file->second.bytes.size())
-        file->second.bytes.resize(static_cast<size_t>(end), 0);
-    if (byteCount)
-        std::memcpy(file->second.bytes.data() + offset, source, byteCount);
+    HostFile& host = *file->second.file;
+    if (byteCount && !host.WriteAt(offset, source, byteCount))
+        return GuestFileWriteResult::AccessDenied;
+    if (end > host.size) host.size = end;
     ReadHostAttributes(file->second.hostPath, &file->second.attributes);
     if (useCurrentPosition) file->second.currentPosition += byteCount;
     if (bytesWritten) *bytesWritten = byteCount;

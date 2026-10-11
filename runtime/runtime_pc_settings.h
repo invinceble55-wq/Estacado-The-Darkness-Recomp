@@ -138,6 +138,10 @@ msaa_mode::Policy RuntimeMsaaModeFromPcConfig(
 double RuntimeAudioMasterVolumeFromPcConfig(
     const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot = nullptr);
 
+// #22 general.achievement_notifications (missing: on).
+bool RuntimeAchievementNotificationsFromPcConfig(
+    const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot = nullptr);
+
 // Runtime-owned Xbox language selection shared by XGetLanguage and
 // ExGetXConfigSetting. Missing optional config/value preserves English (1).
 // Supported named values map only to language content shipped by this title;

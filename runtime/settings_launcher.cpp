@@ -36,6 +36,8 @@
 #include "runtime_gpu_calibration.h"
 #include "runtime_user_data.h"
 #include "runtime_single_instance.h"
+#include "runtime_update_check.h"
+#include "ui_language.h"
 
 #include <rex/ui/rtl_text.h>
 #include <rex/ui/settings_detection.h>
@@ -157,6 +159,24 @@ struct Launcher {
     // About: credits, licence texts, crash reports.
     bool openAbout = false;
     std::string packageVersion;
+    // #24: the newest public release, checked in the background at start
+    // (About turns it off; launcher_prefs.toml in the saves folder).
+    struct UpdateCheck {
+        std::mutex mutex;
+        bool done = false;
+        std::optional<darkness::update_check::Release> newer;
+    };
+    std::shared_ptr<UpdateCheck> update = std::make_shared<UpdateCheck>();
+    bool checkForUpdates = true;
+    // Interface languages from <folder>/languages/*.toml (ui_language.h):
+    // the choice ("auto", "english" or a file's code; launcher_prefs.toml),
+    // the language in use (null: English; Arabic has its own path) and the
+    // one the schema was translated with.
+    std::vector<UiLanguage> uiLanguages;
+    std::string uiLanguageChoice = "auto";
+    std::string windowsLanguage;
+    const UiLanguage* ui = nullptr;
+    const UiLanguage* schemaUi = nullptr;
     // Vendor upscaler runtimes in the game folder (temporal AA choices).
     ui::UpscalerRuntimes upscalers;
     // The optional Arabic language pack: installed, and its install job.
@@ -180,6 +200,7 @@ std::string Tr(const Launcher& app, std::string_view english) {
         const std::string_view arabic = PcSettingsArabicText(english);
         if (!arabic.empty()) return std::string(arabic);
     }
+    if (app.ui) return app.ui->Tr(english);
     return std::string(english);
 }
 
@@ -1123,6 +1144,8 @@ void UpdateDetections(Launcher& app) {
     app.model.detected_notes["resolution_scale"] = std::move(note);
 }
 
+void SaveLauncherPrefs(const Launcher& app);
+
 void DrawHeader(Launcher& app) {
     // The product's own name as plain text (no game logo), then what it runs.
     const std::string subtitle = Shown(app, Tr(app, "The Darkness (Xbox 360)  |  Settings"));
@@ -1159,6 +1182,75 @@ void DrawHeader(Launcher& app) {
         ImGui::SetCursorPos(ImVec2(app.arabic ? top.x : ImGui::GetContentRegionMax().x - width,
                                    top.y + ImGui::GetFontSize() * 0.35f));
         if (ImGui::Button((about + "##about").c_str())) app.openAbout = true;
+        // #24: a newer release, beside About.
+        std::optional<darkness::update_check::Release> newer;
+        {
+            std::lock_guard<std::mutex> lock(app.update->mutex);
+            newer = app.update->newer;
+        }
+        const float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float used = width + spacing;  // from the far end: About, update, language
+        if (newer && app.checkForUpdates) {
+            const std::string label = Shown(
+                app, ui::FormatText(Tr(app, "Update available: {}"), {newer->version}));
+            const float update_width = TextWidth(label) + ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImGui::SetCursorPos(ImVec2(app.arabic ? top.x + used
+                                                  : ImGui::GetContentRegionMax().x - used -
+                                                        update_width,
+                                       top.y + ImGui::GetFontSize() * 0.35f));
+            used += update_width + spacing;
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.13f, 0.47f, 0.24f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.17f, 0.58f, 0.30f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.10f, 0.38f, 0.19f, 1.0f));
+            if (ImGui::Button((label + "##update").c_str())) {
+                const std::wstring url(newer->url.begin(), newer->url.end());
+                ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            }
+            ImGui::PopStyleColor(3);
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", Shown(app, Tr(app, "Opens the release page in your browser. "
+                                                         "Download the new version there.")).c_str());
+            }
+        }
+        // 7b: the launcher's language (with Arabic chosen in Language, that
+        // one rules and this choice waits).
+        if (!app.uiLanguages.empty() && !app.arabic) {
+            const UiLanguage* automatic =
+                PickUiLanguage(app.uiLanguages, "auto", app.windowsLanguage);
+            const auto nameOf = [&](const std::string& choice) -> std::string {
+                if (choice == "english") return "English";
+                if (choice == "auto") {
+                    return Tr(app, "Automatic") + " (" +
+                           (automatic ? automatic->name : std::string("English")) + ")";
+                }
+                for (const UiLanguage& language : app.uiLanguages) {
+                    if (language.code == choice) return language.name;
+                }
+                return choice;
+            };
+            const float combo_width =
+                std::max(ImGui::GetFontSize() * 9.0f,
+                         TextWidth(nameOf(app.uiLanguageChoice)) + ImGui::GetFrameHeight() +
+                             ImGui::GetStyle().FramePadding.x * 3.0f);
+            ImGui::SetCursorPos(ImVec2(ImGui::GetContentRegionMax().x - used - combo_width,
+                                       top.y + ImGui::GetFontSize() * 0.35f));
+            ImGui::SetNextItemWidth(combo_width);
+            if (ImGui::BeginCombo("##uilanguage", nameOf(app.uiLanguageChoice).c_str())) {
+                std::vector<std::string> choices{"auto", "english"};
+                for (const UiLanguage& language : app.uiLanguages) choices.push_back(language.code);
+                for (const std::string& choice : choices) {
+                    if (ImGui::Selectable(nameOf(choice).c_str(), choice == app.uiLanguageChoice)) {
+                        app.uiLanguageChoice = choice;
+                        SaveLauncherPrefs(app);
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", Tr(app, "The launcher's language. The game's own language "
+                                                "is in the Language section.").c_str());
+            }
+        }
         ImGui::SetCursorPos(below);
     }
 
@@ -1366,6 +1458,51 @@ std::string ReadPackageVersion(const std::filesystem::path& directory) {
     }
 }
 
+// Launcher preferences that are not game settings (launcher_prefs.toml in
+// the saves folder).
+std::filesystem::path LauncherPrefsPath(const Launcher& app) {
+    return app.userData.root / L"launcher_prefs.toml";
+}
+
+void LoadLauncherPrefs(Launcher& app) {
+    try {
+        const toml::table prefs = toml::parse_file(LauncherPrefsPath(app).u8string());
+        app.checkForUpdates = prefs["check_for_updates"].value_or(true);
+        app.uiLanguageChoice = prefs["interface_language"].value_or(std::string("auto"));
+    } catch (...) {
+    }
+}
+
+void SaveLauncherPrefs(const Launcher& app) {
+    toml::table prefs;
+    prefs.insert("check_for_updates", app.checkForUpdates);
+    prefs.insert("interface_language", app.uiLanguageChoice);
+    std::error_code ignore;
+    std::filesystem::create_directories(app.userData.root, ignore);
+    std::ofstream out(LauncherPrefsPath(app), std::ios::binary | std::ios::trunc);
+    out << prefs << "\n";
+}
+
+// #24: looks for a newer public release in the background. Only the release
+// list is read; the button opens the release page.
+// DARKNESS_UPDATE_CHECK_VERSION=<version> checks as that version (tests).
+void StartUpdateCheck(Launcher& app) {
+    std::string current = app.packageVersion;
+    if (const char* forced = std::getenv("DARKNESS_UPDATE_CHECK_VERSION")) current = forced;
+    if (!app.checkForUpdates || current.empty()) return;
+    std::thread([state = app.update, current]() {
+        std::string body, error;
+        std::optional<darkness::update_check::Release> newer;
+        if (darkness::update_check::FetchText(darkness::update_check::kReleasesApiUrl, body,
+                                              4u << 20, error)) {
+            newer = darkness::update_check::NewestNewerRelease(body, current);
+        }
+        std::lock_guard<std::mutex> lock(state->mutex);
+        state->newer = std::move(newer);
+        state->done = true;
+    }).detach();
+}
+
 // Copies the saves of another (older) folder into the saves folder in use;
 // the saves and settings there are kept under a new name.
 void ImportSaves(Launcher& app, const std::filesystem::path& source) {
@@ -1477,6 +1614,16 @@ void DrawAbout(Launcher& app) {
     if (!app.packageVersion.empty()) {
         paragraph(ui::FormatText(Tr(app, "Version {}"), {app.packageVersion}));
     }
+    {
+        const std::string label = Shown(app, Tr(app, "Check for updates when the launcher starts"));
+        if (app.arabic) AlignRight(TextWidth(label) + ImGui::GetFrameHeight() +
+                                   ImGui::GetStyle().ItemInnerSpacing.x);
+        if (ImGui::Checkbox((label + "##checkupdates").c_str(), &app.checkForUpdates)) {
+            SaveLauncherPrefs(app);
+            if (app.checkForUpdates) StartUpdateCheck(app);
+        }
+        ImGui::Spacing();
+    }
     paragraph(Tr(app, "Built with ReXGlue (BSD-3-Clause, based on Xenia), XenonRecomp (MIT), "
                       "Dear ImGui, SDL3, toml++, FFmpeg and libmspack (LGPL-2.1) and other "
                       "open-source components."));
@@ -1573,10 +1720,15 @@ void DrawFrame(Launcher& app) {
     // overlay use it from their next start).
     const bool arabic = app.offer.arabic &&
                         PcSettingsInterfaceArabic(ui::ValueOf(app.model, "general.language"));
-    if (arabic != app.arabic || !(app.offer == app.schemaOffer)) {
+    // Other interface languages (7b): the launcher's own choice; Arabic wins.
+    app.ui = arabic ? nullptr
+                    : PickUiLanguage(app.uiLanguages, app.uiLanguageChoice, app.windowsLanguage);
+    if (arabic != app.arabic || !(app.offer == app.schemaOffer) || app.ui != app.schemaUi) {
         app.arabic = arabic;
         app.schemaOffer = app.offer;
+        app.schemaUi = app.ui;
         app.schema = BuildPcSettingsUiSchema(arabic, app.offer);
+        if (app.ui) TranslateSettingsSchema(app.schema, *app.ui);
         app.model.schema = &app.schema;
         app.detectedFor.clear();
         DetectTexturePacks(app);
@@ -1770,6 +1922,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
         std::error_code ignore;
         std::filesystem::create_directories(app.dataDirectory, ignore);
     }
+    // Launcher preferences and the interface language before any text.
+    LoadLauncherPrefs(app);
+    app.uiLanguages = LoadUiLanguages(app.directory / L"languages");
+    app.windowsLanguage = WindowsDisplayLanguage();
+    if (const char* forced = std::getenv("DARKNESS_TEST_WINDOWS_LANGUAGE")) app.windowsLanguage = forced;
+    app.ui = PickUiLanguage(app.uiLanguages, app.uiLanguageChoice, app.windowsLanguage);
+    // Layout checks of one section (tests): DARKNESS_TEST_LAUNCHER_SECTION=<index>[a]
+    // opens it, "a" with the advanced settings shown.
+    if (const char* section = std::getenv("DARKNESS_TEST_LAUNCHER_SECTION")) {
+        app.model.section = size_t(std::strtoul(section, nullptr, 10));
+        app.model.show_advanced = std::strchr(section, 'a') != nullptr;
+    }
     app.offer = PcSettingsOfferFor(app.dataDirectory, app.directory, kLanguagePackUrl[0] != '\0');
     app.schemaOffer = app.offer;
     app.schema = BuildPcSettingsUiSchema(false, app.offer);
@@ -1876,7 +2040,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
     const std::filesystem::path fonts = std::filesystem::path(windowsDirectory) / L"Fonts";
     // Latin plus Arabic and its presentation forms (the Arabic interface draws
     // pre-shaped text, rex/ui/rtl_text.h).
-    static const ImWchar kGlyphRanges[] = {0x0020, 0x024F, 0x0600, 0x06FF, 0x2000, 0x206F,
+    // Cyrillic for Russian (7b).
+    static const ImWchar kGlyphRanges[] = {0x0020, 0x024F, 0x0400, 0x04FF, 0x0600, 0x06FF,
+                                           0x2000, 0x206F,
                                            0xFB50, 0xFDFF, 0xFE70, 0xFEFF, 0};
     ImFont* body = nullptr;
     if (std::filesystem::is_regular_file(fonts / L"segoeui.ttf")) {
@@ -1901,6 +2067,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
     Reload(app);
     CheckGame(app);
     app.packageVersion = ReadPackageVersion(app.directory);
+    StartUpdateCheck(app);
     app.upscalers = ui::ScanUpscalerRuntimes(app.directory);
     if (app.upscalers.dlss) app.upscalers.dlss_card = HasNvidiaRtxCard();
     if (app.onSteamDeck && !app.configExists && app.presetCombo >= 0) {

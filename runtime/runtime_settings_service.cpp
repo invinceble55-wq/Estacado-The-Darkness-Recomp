@@ -5,11 +5,14 @@
 #include "runtime_audio.h"
 #include "runtime_graphics.h"
 #include "runtime_input.h"
+#include "runtime_modules.h"
 #include "runtime_msaa_mode.h"
 #include "runtime_pc_settings.h"
 #include "runtime_single_instance.h"
+#include "ui_language.h"
 
 #include <rex/ui/settings_schema.h>
+#include <toml++/toml.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -74,6 +77,10 @@ void ApplyHostLive(const std::string& key, const std::string& value) {
         if (msaa_mode::ParsePolicy(value, policy)) ConfigureRuntimeMsaaMode(policy, "overlay");
         return;
     }
+    if (key == "general.achievement_notifications") {
+        if (value == "true" || value == "false") ConfigureRuntimeAchievementNotifications(value == "true");
+        return;
+    }
     char* end = nullptr;
     const double number = std::strtod(value.c_str(), &end);
     if (!end || *end != '\0') return;
@@ -110,6 +117,22 @@ void Run(RuntimeSettingsServiceConfig config) {
         config.offer.arabic && language != saved.end() &&
         PcSettingsInterfaceArabic(language->second)) {
         schema = BuildPcSettingsUiSchema(true, config.offer);
+    } else {
+        // 7b: the launcher's interface language (read once; a change applies
+        // at the next start).
+        std::string choice = "auto";
+        try {
+            const toml::table prefs = toml::parse_file(config.launcherPrefsPath.u8string());
+            choice = prefs["interface_language"].value_or(std::string("auto"));
+        } catch (...) {
+        }
+        static const std::vector<UiLanguage> languages = LoadUiLanguages(config.languagesFolder);
+        if (const UiLanguage* language =
+                PickUiLanguage(languages, choice, WindowsDisplayLanguage())) {
+            TranslateSettingsSchema(schema, *language);
+            std::fprintf(stderr, "RUNTIME_SETTINGS_SERVICE interface_language=%s\n",
+                         language->code.c_str());
+        }
     }
     const std::string schemaText = ui::SerializeSchema(schema);
 
@@ -127,6 +150,14 @@ void Run(RuntimeSettingsServiceConfig config) {
                  config.configPath.u8string().c_str());
     std::fflush(stderr);
     if (!configured) return;
+    if (std::getenv("DARKNESS_TEST_ACHIEVEMENT_TOAST")) {
+        // Developer check of the #22 toast: the catalog's first entry, shown
+        // only (nothing unlocked).
+        if (!ExecutableAchievements().empty()) {
+            const auto& first = ExecutableAchievements().front();
+            RuntimeGraphicsShowAchievement(first.id, first.label.c_str(), first.gamerscore);
+        }
+    }
 
     ui::Values pending;
     Clock::time_point lastChange{};

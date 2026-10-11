@@ -26,8 +26,8 @@ derived from the game: keep them for your own use.
 In a PowerShell window:
 
 ```powershell
-git clone --recursive https://github.com/invinceble55-wq/Estacado.git
-cd Estacado
+git clone --recursive https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp.git
+cd Estacado-The-Darkness-Recomp
 powershell -ExecutionPolicy Bypass -File scripts\build-all.ps1 -Game "D:\Path\To\Darkness.iso" -Package build\package
 ```
 
