@@ -42,7 +42,7 @@ int main() {
   };
 
   // V440: the full schema (every shelved setting offered).
-  const PcSettingsOffer all{true, true};
+  const PcSettingsOffer all{true, true, true};
   const ui::Schema schema = BuildPcSettingsUiSchema(false, all);
   {
     bool complete = schema.settings.size() == PcEditableSettingsSchema().size();
@@ -506,9 +506,9 @@ int main() {
     for (const ui::Choice& choice : language ? language->choices : std::vector<ui::Choice>{}) {
       arabic_choice = arabic_choice || choice.value == "arabic";
     }
-    check(!shelved.Find("graphics.temporal_aa") &&
-              shelved.settings.size() + 1 == PcEditableSettingsSchema().size(),
-          "without the switch the temporal AA setting is not offered");
+    check(!shelved.Find("graphics.temporal_aa") && !shelved.Find("streamline.frame_generation") &&
+              shelved.settings.size() + 2 == PcEditableSettingsSchema().size(),
+          "without the switch the temporal AA and frame generation settings are not offered");
     check(language && language->label == "Language" && !arabic_choice &&
               language->choices.size() == 6 &&
               language->description.find("Arabic") == std::string::npos,

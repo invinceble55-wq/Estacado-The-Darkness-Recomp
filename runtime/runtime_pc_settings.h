@@ -138,6 +138,14 @@ msaa_mode::Policy RuntimeMsaaModeFromPcConfig(
 double RuntimeAudioMasterVolumeFromPcConfig(
     const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot = nullptr);
 
+// Cheats (runtime_cheats.h): cheats.god_mode, cheats.give_all (missing: off).
+struct RuntimeCheatConfig {
+    bool godMode = false;
+    bool giveAll = false;
+};
+RuntimeCheatConfig RuntimeCheatConfigFromPcConfig(
+    const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot = nullptr);
+
 // #22 general.achievement_notifications (missing: on).
 bool RuntimeAchievementNotificationsFromPcConfig(
     const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot = nullptr);
@@ -315,6 +323,17 @@ std::string RuntimePcConfigWithShelvedFeatures(const std::string& contents,
                                                const std::string& sourceName,
                                                bool temporalAaOffered,
                                                std::string* shelved = nullptr);
+// Shelved Frame Generation (#3): streamline.frame_generation reaches the GPU
+// as 0 unless offered (DARKNESS_EXPERIMENTAL=frame_generation).
+std::string RuntimePcConfigWithShelvedFrameGeneration(const std::string& contents,
+                                                      const std::string& sourceName,
+                                                      bool offered, int64_t* shelved = nullptr);
+// Temporal upscaler (#3, #23): graphics.upscaler (off, dlss, fsr, xess)
+// reaches the GPU as graphics.temporal_aa with graphics.upscale_mode; with
+// the upscaler off the mode reaches it as "off". The upscaler key itself is
+// removed. applied receives "<upscaler>:<mode>" or "off".
+std::string RuntimePcConfigWithUpscaler(const std::string& contents, const std::string& sourceName,
+                                        std::string* applied = nullptr);
 std::vector<std::string> RuntimePcConfigInstallLines(
     const RuntimePcConfigInstallResult& result);
 std::vector<std::string> RuntimePcConfigInstallErrorLines(

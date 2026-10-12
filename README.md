@@ -274,6 +274,11 @@ recompiles your own `default.xex`, builds the runtime and packages it.
   [Xenia](https://github.com/xenia-project/xenia) project, whose work this
   port's system and graphics layer builds on.
 - [XenonRecomp](https://github.com/hedge-dev/XenonRecomp) (hedge-dev).
+- Upscaling: NVIDIA DLSS (NVIDIA DLSS SDK, used under the NVIDIA RTX SDKs
+  License; this product uses NVIDIA DLSS - NVIDIA, GeForce RTX and DLSS are
+  trademarks of NVIDIA Corporation), AMD FidelityFX Super Resolution 3.1 and
+  Intel XeSS. Their runtimes are separately licensed binaries
+  (`licenses/`), not covered by this project's MIT licence.
 - SMAA (Jimenez et al.), AMD FidelityFX FSR 1 and CAS, Dear ImGui, SDL, and
   the other libraries listed in
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -60,7 +60,7 @@ if ($Sdk -contains 'none') { $Sdk = @() }
 foreach ($item in $Sdk) {
     if ($item -notin 'dlss', 'fsr', 'xess') { throw "Unknown SDK '$item' (use dlss, fsr, xess)." }
 }
-if ($Player) { $Sdk = @($Sdk | Where-Object { $_ -ne 'dlss' }) }
+# 0.9.8+: player packages may carry DLSS when asked for (-Sdk dlss,...).
 $out = [IO.Path]::GetFullPath($Output)
 # Player documents: release/ in the development tree, the repository root in
 # the public source.

@@ -40,6 +40,7 @@ PcSettingsOffer PcSettingsOfferFor(const std::filesystem::path& dataFolder,
                                    bool downloadable) {
     PcSettingsOffer offer;
     offer.temporalAa = PcExperimentalFeature("temporal_aa");
+    offer.frameGeneration = PcExperimentalFeature("frame_generation");
     rex::ui::settings::LanguagePackFolder installed =
         rex::ui::settings::ScanLanguagePackFolder(dataFolder / L"language_packs" / L"arabic");
     if (!(installed.strings && installed.fonts) && programFolder != dataFolder) {
@@ -110,6 +111,7 @@ rex::ui::settings::Schema BuildPcSettingsUiSchema(bool arabic, const PcSettingsO
     for (const PcEditableSettingSpec& spec : PcEditableSettingsSchema()) {
         // Shelved (V440): temporal AA and its upscalers.
         if (spec.key == "graphics.temporal_aa" && !offer.temporalAa) continue;
+        if (spec.key == "streamline.frame_generation" && !offer.frameGeneration) continue;
         // Without Arabic the language setting names only the game's languages.
         const bool englishOnly = spec.key == "general.language" && !offer.arabic;
         const PcSettingPresentation& presentation = PcSettingPresentationFor(spec.key);

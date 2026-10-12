@@ -3,6 +3,7 @@
 #include "pc_settings_arabic.h"
 #include "pc_settings_ui.h"
 #include "runtime_audio.h"
+#include "runtime_cheats.h"
 #include "runtime_graphics.h"
 #include "runtime_input.h"
 #include "runtime_modules.h"
@@ -77,6 +78,16 @@ void ApplyHostLive(const std::string& key, const std::string& value) {
         if (msaa_mode::ParsePolicy(value, policy)) ConfigureRuntimeMsaaMode(policy, "overlay");
         return;
     }
+    if (key == "cheats.god_mode" && (value == "true" || value == "false")) {
+        RuntimeCheatSettings cheats = RuntimeCheatsCurrent();
+        cheats.godMode = value == "true";
+        ConfigureRuntimeCheats(cheats);
+        return;
+    }
+    if (key == "cheats.give_all") {
+        if (value == "true") RuntimeCheatsGiveAll();
+        return;
+    }
     if (key == "general.achievement_notifications") {
         if (value == "true" || value == "false") ConfigureRuntimeAchievementNotifications(value == "true");
         return;
@@ -127,8 +138,10 @@ void Run(RuntimeSettingsServiceConfig config) {
         } catch (...) {
         }
         static const std::vector<UiLanguage> languages = LoadUiLanguages(config.languagesFolder);
-        if (const UiLanguage* language =
-                PickUiLanguage(languages, choice, WindowsDisplayLanguage())) {
+        // DARKNESS_TEST_WINDOWS_LANGUAGE: layout checks on another Windows language.
+        const char* forcedWindows = std::getenv("DARKNESS_TEST_WINDOWS_LANGUAGE");
+        if (const UiLanguage* language = PickUiLanguage(
+                languages, choice, forcedWindows ? std::string(forcedWindows) : WindowsDisplayLanguage())) {
             TranslateSettingsSchema(schema, *language);
             std::fprintf(stderr, "RUNTIME_SETTINGS_SERVICE interface_language=%s\n",
                          language->code.c_str());

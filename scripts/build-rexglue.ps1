@@ -28,7 +28,7 @@ if (-not (Test-Path -LiteralPath $source -PathType Container)) {
 # The project's configuration: ThinLTO, the GPU PGO profile when present,
 # player builds without diagnostics, Direct3D 12 only, no ReXGlue tests, the
 # FidelityFX API from build/deps (scripts/fetch-sdks.ps1) instead of a fetch.
-$profile = Join-Path $root 'config/pgo/rexgpu-v525.profdata'
+$profile = Join-Path $root 'config/pgo/rexgpu-v529.profdata'
 $pgo = 'OFF'
 if (-not $NoPgo -and (Test-Path -LiteralPath $profile -PathType Leaf)) { $pgo = 'USE' }
 $options = @(
@@ -47,7 +47,9 @@ if ($Player) {
     $prefix = "/clang:-ffile-prefix-map=$root\= /clang:-ffile-prefix-map=$($root -replace '\\', '/')/="
     $options += @(
         '-B', $binary,
-        '-D', ('REXGLUE_DLSS_SDK_DIR=' + ((Join-Path $root 'build/deps/no-dlss-in-player-packages') -replace '\\', '/')),
+        # 0.9.8+: DLSS Super Resolution ships (owner, 2026-10-12; the runtime
+        # is a separately licensed NVIDIA binary, licenses/NVIDIA_DLSS_*).
+        '-D', ('REXGLUE_DLSS_SDK_DIR=' + ((Join-Path $root 'build/deps/DLSS') -replace '\\', '/')),
         '-D', ('REXGLUE_STREAMLINE_SDK_DIR=' + ((Join-Path $root 'build/deps/no-streamline-in-player-packages') -replace '\\', '/')),
         '-D', "CMAKE_C_FLAGS=/clang:-march=x86-64-v3 $prefix",
         '-D', "CMAKE_CXX_FLAGS=/clang:-march=x86-64-v3 $prefix")

@@ -20,6 +20,7 @@
 #include <array>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <filesystem>
@@ -30,6 +31,7 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 uint32_t RuntimeActiveNonHelperGuestFunction() noexcept;
 
@@ -787,7 +789,17 @@ bool InitializeRuntimeGraphics(uint8_t* guest_virtual_base) {
         uint64_t initialCaptureGeneration{};
         const bool manualCameraCapture = adapter.get_manual_capture &&
             adapter.get_manual_capture(adapter.gpu, &initialCaptureGeneration);
-        ConfigureRuntimeCamera(pcSettings.gameplay_fov_degrees,
+        // Experimental VR in a headset (REX_DISPLAY_VR): the eyes get the
+        // headset's field of view on the GPU; the title's own view only
+        // decides what it draws, so it is widened to the maximum (less
+        // missing geometry at the edges when the head turns).
+        float gameplayFov = pcSettings.gameplay_fov_degrees;
+        if (const char* vr = std::getenv("REX_DISPLAY_VR");
+            vr && (std::string_view(vr) == "true" || std::string_view(vr) == "1")) {
+            gameplayFov = 120.0f;
+            std::cout << "PC_VR_CULLING_FOV degrees=120\n";
+        }
+        ConfigureRuntimeCamera(gameplayFov,
                                pcSettings.trace_camera_state != 0,
                                manualCameraCapture);
         adapter.keyboard_mouse_user_index.store(

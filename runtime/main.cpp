@@ -5,6 +5,7 @@
 #include "runtime_fatal.h"
 #include "runtime_frame_wait.h"
 #include "runtime_function_trace.h"
+#include "runtime_cheats.h"
 #include "runtime_graphics.h"
 #include "runtime_pc_config_snapshot.h"
 #include "runtime_graphics_cache.h"
@@ -739,6 +740,20 @@ int main(int argc, char** argv) {
                 std::cout << "PC_CONFIG_SHELVED temporal_aa=" << shelvedTemporalAa
                           << " applied=off\n";
             }
+            // The temporal upscaler (after the shelving: it chooses the
+            // GPU's temporal_aa method itself).
+            std::string upscaler;
+            graphicsPcConfigContents = RuntimePcConfigWithUpscaler(
+                graphicsPcConfigContents, startupPcConfig.origin().u8string(), &upscaler);
+            std::cout << "PC_CONFIG_UPSCALER applied=" << upscaler << '\n';
+            int64_t shelvedFrameGeneration = 0;
+            graphicsPcConfigContents = RuntimePcConfigWithShelvedFrameGeneration(
+                graphicsPcConfigContents, startupPcConfig.origin().u8string(),
+                PcExperimentalFeature("frame_generation"), &shelvedFrameGeneration);
+            if (shelvedFrameGeneration) {
+                std::cout << "PC_CONFIG_SHELVED frame_generation=" << shelvedFrameGeneration
+                          << " applied=0\n";
+            }
         }
         bool automaticScaleResolved = false;
         RuntimeAutoScale automaticScale{};
@@ -889,6 +904,24 @@ int main(int argc, char** argv) {
             RuntimeMsaaModeFromPcConfig(startupPcConfigPath, &startupPcConfig), "config");
         ConfigureRuntimeAchievementNotifications(
             RuntimeAchievementNotificationsFromPcConfig(startupPcConfigPath, &startupPcConfig));
+        {
+            const RuntimeCheatConfig cheatConfig =
+                RuntimeCheatConfigFromPcConfig(startupPcConfigPath, &startupPcConfig);
+            RuntimeCheatSettings cheatSettings;
+            cheatSettings.godMode = cheatConfig.godMode;
+            ConfigureRuntimeCheats(cheatSettings);
+            if (cheatConfig.giveAll) RuntimeCheatsGiveAll();
+            std::cout << "PC_CHEATS god_mode=" << (cheatConfig.godMode ? 1 : 0)
+                      << " give_all=" << (cheatConfig.giveAll ? 1 : 0) << '\n';
+        }
+        // Developer verification of the cheats (DARKNESS_TEST_CHEATS=god,giveall).
+        if (const char* cheats = std::getenv("DARKNESS_TEST_CHEATS")) {
+            const std::string list(cheats);
+            RuntimeCheatSettings cheatSettings;
+            cheatSettings.godMode = list.find("god") != std::string::npos;
+            ConfigureRuntimeCheats(cheatSettings);
+            if (list.find("giveall") != std::string::npos) RuntimeCheatsGiveAll();
+        }
         InitializeRuntimeMsaaModeDiagnostics();
         const uint32_t xboxLanguage =
             RuntimeXboxLanguageFromPcConfig(startupPcConfigPath, &startupPcConfig);

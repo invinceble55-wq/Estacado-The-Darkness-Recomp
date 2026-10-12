@@ -24,6 +24,8 @@ motion_blur = false
 motion_blur_off_shader_pack = ""
 hd_textures = false
 temporal_aa = "off"
+upscaler = "off"
+upscale_mode = "quality"
 msaa_mode = "4x"
 glow_reconstruction = "on"
 
@@ -65,3 +67,10 @@ vibration_scale = 1.0
 
 [diagnostics]
 camera_state = false
+
+[streamline]
+frame_generation = 0
+
+[cheats]
+god_mode = false
+give_all = false

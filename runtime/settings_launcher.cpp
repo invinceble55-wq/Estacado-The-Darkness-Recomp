@@ -44,6 +44,7 @@
 #include <rex/ui/settings_panel.h>
 
 #include <algorithm>
+#include <chrono>
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
@@ -158,6 +159,9 @@ struct Launcher {
     std::unique_ptr<GameSetupJob> job = std::make_unique<GameSetupJob>();
     // About: credits, licence texts, crash reports.
     bool openAbout = false;
+    // The start screen's NVIDIA DLSS attribution (DrawSplash).
+    std::chrono::steady_clock::time_point splashStart = std::chrono::steady_clock::now();
+    bool splashDone = false;
     std::string packageVersion;
     // #24: the newest public release, checked in the background at start
     // (About turns it off; launcher_prefs.toml in the saves folder).
@@ -1576,6 +1580,65 @@ void DrawUserDataBar(Launcher& app) {
     ImGui::Separator();
 }
 
+// The start screen's attribution (NVIDIA RTX SDKs licence: applications with
+// the DLSS SDK attribute it on splash screens, in About and in the credits):
+// shown over the launcher for its first seconds when the DLSS runtime is in
+// this folder; a click or a key closes it.
+void DrawSplash(Launcher& app) {
+    if (app.splashDone) return;
+    std::error_code error;
+    const bool dlss = std::filesystem::is_regular_file(app.directory / L"nvngx_dlss.dll", error);
+    const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                                         app.splashStart)
+                               .count();
+    if (!dlss || elapsed > 4.0) {
+        app.splashDone = true;
+        return;
+    }
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 30.0f, 0.0f));
+    ImGui::SetNextWindowFocus();
+    if (ImGui::Begin("##splash", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove)) {
+        const float width = ImGui::GetContentRegionAvail().x;
+        auto centred = [&](const std::string& text) {
+            const std::string shown = Shown(app, text);
+            if (app.arabic) {
+                for (const std::string& line : rex::ui::rtl::WrapVisual(shown, width, TextWidth)) {
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                                         std::max(0.0f, (width - TextWidth(line)) * 0.5f));
+                    ImGui::TextUnformatted(line.c_str());
+                }
+                return;
+            }
+            const float textWidth = TextWidth(shown);
+            if (textWidth < width) {
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (width - textWidth) * 0.5f);
+                ImGui::TextUnformatted(shown.c_str());
+            } else {
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextUnformatted(shown.c_str());
+                ImGui::PopTextWrapPos();
+            }
+        };
+        ImGui::Spacing();
+        centred(DARKNESS_PRODUCT_NAME);
+        ImGui::Spacing();
+        centred(Tr(app, "This product uses NVIDIA DLSS."));
+        ImGui::Spacing();
+        centred(Tr(app, "NVIDIA, GeForce RTX and DLSS are trademarks of NVIDIA Corporation."));
+        ImGui::Spacing();
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) app.splashDone = true;
+    }
+    ImGui::End();
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsKeyPressed(ImGuiKey_Enter) ||
+        ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        app.splashDone = true;
+    }
+}
+
 void DrawAbout(Launcher& app) {
     if (app.openAbout) {
         ImGui::OpenPopup("##about");
@@ -1757,6 +1820,7 @@ void DrawFrame(Launcher& app) {
     DrawModal(app);
     DrawAbout(app);
     ImGui::End();
+    DrawSplash(app);
 }
 
 // ---- Direct3D 11 ----

@@ -80,6 +80,12 @@ motion_blur = false
 motion_blur_off_shader_pack = ""
 hd_textures = false
 temporal_aa = "off"
+# Temporal upscaler (#3, #23): off, dlss (NVIDIA RTX), fsr (AMD FSR 3.1) or
+# xess (Intel XeSS) builds a larger image from the internal scale:
+# upscale_mode native (anti-aliasing only, DLAA), quality (1.5x), balanced
+# (1.7x), performance (2x) or ultra_performance (3x).
+upscaler = "off"
+upscale_mode = "quality"
 # Scene MSAA (#16): "4x" keeps the console's normal 4x all the time (on PC
 # also the faster mode above internal scale 1x: the 2x mode needs about twice
 # the graphics time there); "2x" always uses the game's 2x mode (faster only
@@ -156,6 +162,19 @@ frame_rate = "refresh"
 # the gameplay frame rate.
 menu_frame_rate = "reduced"
 widescreen = false
+
+[streamline]
+# Experimental NVIDIA DLSS Frame Generation (#3): generated frames per rendered
+# frame, 0 = off. Only test builds offer it (DARKNESS_EXPERIMENTAL=frame_generation);
+# otherwise it is always 0.
+frame_generation = 0
+
+[cheats]
+# The developers' own cheats (runtime_cheats.h), off by default. god_mode is
+# not kept in saves; give_all (every weapon, highest Darkness and Demon Arm
+# levels) is. No achievements unlock while a cheat is on.
+god_mode = false
+give_all = false
 
 [camera]
 # The decoded title viewport's original horizontal FOV is 95 degrees. The

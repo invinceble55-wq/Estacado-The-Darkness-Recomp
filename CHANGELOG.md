@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.9.8 (pre-release)
+
+- **Temporal upscaling** ([#23](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/23), [#3](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/3)): settings
+  `graphics.upscaler` (off, dlss on NVIDIA RTX cards, fsr, xess; the player
+  package ships nvngx_dlss.dll, amd_fidelityfx_dx12.dll and libxess.dll as
+  separately licensed binaries with their licences; the launcher shows the
+  NVIDIA DLSS attribution on its start screen and in About) and `graphics.upscale_mode` (native, quality 1.5x, balanced
+  1.7x, performance 2x, ultra_performance 3x of the internal resolution).
+  Unlike the shelved scene TAA it works on the finished frame: at the title's
+  final composite the scene is drawn jittered and its depth and camera motion
+  are kept; the frame right after the composite draw (no HUD yet) is copied;
+  at the swap the SDK upscales that HUD-less frame (display-ready colour) and
+  the HUD and subtitles (pixels where the finished frame differs from the
+  HUD-less one) are laid over it filtered spatially, so they never smear. An
+  upscaler that can't start leaves the frame as with Off (never the scene
+  TAA). The runtime maps the two settings to ReXGlue's `graphics_temporal_aa`
+  and `graphics_upscale_mode` (`RuntimePcConfigWithUpscaler`).
+  Two colour faults of the shared jitter path, found in pre-release testing
+  and fixed before 0.9.8 shipped (they also affected the shelved scene
+  TAA): (1) the scene render target was learned from the LAST colour
+  resolve into the scene texture of a frame; with the Darkness out, and in
+  the title menu, a post-process on another surface copies back into that
+  texture, so the next frame jittered that post-process's depth-tested
+  passes, the colour grading among them: red and green casts alternating
+  frame to frame. Now the first resolve of the frame wins. (2) The jitter
+  moved the D3D12 viewport, which left the last pixel row and column
+  uncovered (stale render-target content that the upscalers smeared into
+  bright streaks along the right and bottom edges); it is now an NDC offset
+  in the system constants. New check `scripts/check-upscaler-colour.ps1`
+  (street with the Darkness and every power, title menu; every upscaler
+  and mode against native) is part of the release gate.
+- **Cheats**: the developers' god mode and give-all impulse commands
+  (`cheats.god_mode`, `cheats.give_all`), let through their shared retail
+  gate stub only at those two call sites; god mode is kept equal to the
+  setting through the character's state bit 0x200 (the death routine is
+  skipped by that bit). Achievements unlock as usual while cheats are on.
+- GPU PGO profile retrained (`config/pgo/rexgpu-v529.profdata`).
+
 ## 0.9.7 (pre-release)
 
 - **Crash in the cemetery fixed** ([#25](https://github.com/invinceble55-wq/Estacado-The-Darkness-Recomp/issues/25)): the dump showed

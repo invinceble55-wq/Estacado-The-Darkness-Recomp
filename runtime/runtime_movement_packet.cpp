@@ -1,4 +1,5 @@
 #include "runtime_movement_packet.h"
+#include "runtime_cheats.h"
 #include "runtime_fatal.h"
 #include "runtime_memory_access.h"
 #include "ppc_recomp_shared.h"
@@ -60,6 +61,27 @@ std::atomic<uint32_t> traced_stick_commands{};
 // AddCommand(client, command): merge a same-time movement vector into the
 // newest queued one (runtime_movement_packet.h, V379).
 PPC_FUNC(sub_824A1720) {
+    // Developer trace of every queued client command (cheats work: the
+    // packet format of controls). DARKNESS_TRACE_COMMANDS=1, first 4000.
+    static const bool trace_all = std::getenv("DARKNESS_TRACE_COMMANDS") != nullptr;
+    static std::atomic<uint32_t> traced_all{};
+    if (trace_all && traced_all.fetch_add(1, std::memory_order_relaxed) < 4000) {
+        const uint32_t command = ctx.r4.u32;
+        char bytes[24 * 2 + 1] = {};
+        static constexpr char kHex[] = "0123456789abcdef";
+        if (command && uint64_t(command) + 24u <= 0x100000000ull) {
+            for (uint32_t i = 0; i < 24; ++i) {
+                const uint8_t value = PPC_LOAD_U8(command + i);
+                bytes[i * 2] = kHex[value >> 4];
+                bytes[i * 2 + 1] = kHex[value & 15];
+            }
+        }
+        std::printf("RUNTIME_CMD frame=%llu lr=0x%08X client=0x%08X cmd=%s\n",
+                    static_cast<unsigned long long>(RuntimeSwapCount()), uint32_t(ctx.lr),
+                    ctx.r3.u32, bytes);
+    }
+    // Cheats (runtime_cheats.h): a pending impulse rides in an idle one.
+    RuntimeCheatsRewriteCommand(base, ctx.r4.u32);
     if (RuntimeStickCommandTraceActive() &&
         traced_stick_commands.fetch_add(1, std::memory_order_relaxed) < 3000) {
         const uint32_t command = ctx.r4.u32;

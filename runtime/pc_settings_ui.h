@@ -17,6 +17,9 @@ struct PcSettingsOffer {
     bool arabic = false;
     // Temporal AA and its upscalers: the graphics.temporal_aa setting.
     bool temporalAa = false;
+    // NVIDIA DLSS Frame Generation (#3, experimental test builds):
+    // streamline.frame_generation.
+    bool frameGeneration = false;
 
     bool operator==(const PcSettingsOffer&) const = default;
 };

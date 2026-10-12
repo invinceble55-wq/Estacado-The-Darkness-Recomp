@@ -1332,6 +1332,50 @@ std::string RuntimePcConfigWithShelvedFeatures(const std::string& contents,
     return serialized.str();
 }
 
+std::string RuntimePcConfigWithShelvedFrameGeneration(const std::string& contents,
+                                                      const std::string& sourceName,
+                                                      bool offered, int64_t* shelved) {
+    if (shelved) *shelved = 0;
+    if (offered || contents.empty()) return contents;
+    toml::table config = toml::parse(contents, sourceName);
+    toml::table* streamline = config["streamline"].as_table();
+    const auto value =
+        streamline ? (*streamline)["frame_generation"].value<int64_t>() : std::optional<int64_t>();
+    if (!value || *value == 0) return contents;
+    streamline->insert_or_assign("frame_generation", int64_t(0));
+    std::ostringstream serialized;
+    serialized.imbue(std::locale::classic());
+    serialized << PcConfigFormatter(config) << '\n';
+    if (shelved) *shelved = *value;
+    return serialized.str();
+}
+
+std::string RuntimePcConfigWithUpscaler(const std::string& contents, const std::string& sourceName,
+                                        std::string* applied) {
+    if (applied) *applied = "off";
+    if (contents.empty()) return contents;
+    toml::table config = toml::parse(contents, sourceName);
+    toml::table* graphics = config["graphics"].as_table();
+    if (!graphics) return contents;
+    const std::string upscaler = (*graphics)["upscaler"].value_or(std::string("off"));
+    const std::string mode = (*graphics)["upscale_mode"].value_or(std::string("quality"));
+    const bool known = upscaler == "dlss" || upscaler == "fsr" || upscaler == "xess";
+    const bool hasKeys = graphics->contains("upscaler") || graphics->contains("upscale_mode");
+    if (!hasKeys) return contents;
+    graphics->erase("upscaler");
+    if (known && mode != "off") {
+        graphics->insert_or_assign("temporal_aa", upscaler);
+        graphics->insert_or_assign("upscale_mode", mode);
+        if (applied) *applied = upscaler + ":" + mode;
+    } else {
+        graphics->insert_or_assign("upscale_mode", std::string("off"));
+    }
+    std::ostringstream serialized;
+    serialized.imbue(std::locale::classic());
+    serialized << PcConfigFormatter(config) << '\n';
+    return serialized.str();
+}
+
 namespace {
 bool SameKeyName(std::string_view value, std::string_view name) {
     return value.size() == name.size() &&
@@ -1616,6 +1660,25 @@ double RuntimeAudioMasterVolumeFromPcConfig(
         throw std::runtime_error("audio.master_volume must be within 0..1");
     }
     return *value;
+}
+
+RuntimeCheatConfig RuntimeCheatConfigFromPcConfig(
+    const std::filesystem::path& path, const RuntimePcConfigSnapshot* snapshot) {
+    RuntimeCheatConfig result;
+    if (!ConfigPresent(path, snapshot)) return result;
+    const toml::table config = ParseConfig(path, snapshot);
+    const auto read = [&config](const char* key, bool& out) {
+        const toml::node* node = FindConfigNode(config, key);
+        if (!node) return;
+        const auto value = node->value<bool>();
+        if (!node->is_boolean() || !value) {
+            throw std::runtime_error(std::string(key) + " must be a boolean");
+        }
+        out = *value;
+    };
+    read("cheats.god_mode", result.godMode);
+    read("cheats.give_all", result.giveAll);
+    return result;
 }
 
 bool RuntimeAchievementNotificationsFromPcConfig(

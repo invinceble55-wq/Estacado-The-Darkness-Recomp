@@ -1349,6 +1349,46 @@ int main() {
                             shelved.empty(),
                         "configurations without temporal AA must reach the GPU unchanged");
     }
+    // #3: Frame Generation is shelved the same way (DARKNESS_EXPERIMENTAL=frame_generation).
+    {
+        const std::string fg =
+            "pc_config_version = 1\nswap_post_effect = \"smaa\"\n[streamline]\nframe_generation = 2\n";
+        int64_t shelved = 0;
+        const toml::table gated = toml::parse(RuntimePcConfigWithShelvedFrameGeneration(fg, "fg", false, &shelved));
+        passed &= Check(shelved == 2 && gated["streamline"]["frame_generation"].value_or(int64_t(-1)) == 0 &&
+                            gated["swap_post_effect"].value_or(std::string()) == "smaa",
+                        "a shelved frame generation choice must reach the GPU as 0, other values kept");
+        passed &= Check(RuntimePcConfigWithShelvedFrameGeneration(fg, "fg", true, &shelved) == fg &&
+                            shelved == 0,
+                        "the experimental switch must pass frame generation through unchanged");
+        const std::string zero = "pc_config_version = 1\n[streamline]\nframe_generation = 0\n";
+        passed &= Check(RuntimePcConfigWithShelvedFrameGeneration(zero, "zero", false, &shelved) == zero &&
+                            RuntimePcConfigWithShelvedFrameGeneration(bare2, "bare2", false, &shelved) == bare2,
+                        "configurations without frame generation must reach the GPU unchanged");
+    }
+    // #3/#23: the temporal upscaler chooses the GPU's temporal_aa method.
+    {
+        const std::string on = "pc_config_version = 1\n[graphics]\ntemporal_aa = \"off\"\n"
+                               "upscaler = \"fsr\"\nupscale_mode = \"performance\"\n";
+        std::string applied;
+        const toml::table mapped = toml::parse(RuntimePcConfigWithUpscaler(on, "on", &applied));
+        passed &= Check(applied == "fsr:performance" &&
+                            mapped["graphics"]["temporal_aa"].value_or(std::string()) == "fsr" &&
+                            mapped["graphics"]["upscale_mode"].value_or(std::string()) ==
+                                "performance" &&
+                            !mapped["graphics"]["upscaler"],
+                        "an upscaler must reach the GPU as temporal_aa with its mode");
+        const std::string off = "pc_config_version = 1\n[graphics]\ntemporal_aa = \"taa\"\n"
+                                "upscaler = \"off\"\nupscale_mode = \"quality\"\n";
+        const toml::table kept = toml::parse(RuntimePcConfigWithUpscaler(off, "off", &applied));
+        passed &= Check(applied == "off" &&
+                            kept["graphics"]["temporal_aa"].value_or(std::string()) == "taa" &&
+                            kept["graphics"]["upscale_mode"].value_or(std::string()) == "off",
+                        "with the upscaler off the mode must reach the GPU as off");
+        passed &= Check(RuntimePcConfigWithUpscaler(bare2, "bare2", &applied) == bare2 &&
+                            applied == "off",
+                        "configurations without the upscaler must reach the GPU unchanged");
+    }
     const auto automatic_path = executable_directory / "automatic_scale.toml";
     std::ofstream(automatic_path, std::ios::binary) << automatic;
     passed &= Check(ValidateRuntimePcConfig(automatic_path, true).valid,

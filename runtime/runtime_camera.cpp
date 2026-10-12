@@ -926,6 +926,24 @@ void RuntimeScaleClientViewFov(PPCContext& context, uint8_t* base) noexcept {
     const uint32_t caller = uint32_t(context.lr);
     const uint32_t view = context.r4.u32;
     if (!view || view > UINT32_MAX - kClientViewBytes) return;
+    // VR investigation (DARKNESS_VR_VIEW_DUMP=1): the 416-byte view as floats,
+    // every 30th write-back (the built view), 200 lines. Off in every player launch.
+    static const bool view_dump = std::getenv("DARKNESS_VR_VIEW_DUMP") != nullptr;
+    if (view_dump && caller == kClientViewWriteBackReturn) {
+        static std::atomic<uint32_t> calls{0};
+        const uint32_t call = calls.fetch_add(1, std::memory_order_relaxed);
+        if (call % 30 == 0 && call / 30 < 200) {
+            std::string line = "RUNTIME_VIEW_DUMP call=" + std::to_string(call) + " client=" +
+                               std::to_string(context.r3.u32) + " v=";
+            char number[32];
+            for (uint32_t offset = 0; offset < kClientViewBytes; offset += 4) {
+                std::snprintf(number, sizeof(number), "%.5g,",
+                              FloatFromBits(PPC_LOAD_U32(view + offset)));
+                line += number;
+            }
+            std::fprintf(stderr, "%s\n", line.c_str());
+        }
+    }
     if (!RuntimeIsClientViewCopy(caller, context.r5.u32)) return;
     const uint32_t title_bits =
         RuntimeViewFovTitleBits(last, PPC_LOAD_U32(view + kClientViewFovOffset));

@@ -48,6 +48,11 @@ const std::vector<PcEditableSettingSpec>& PcEditableSettingsSchema() {
         {"display.frame_limit", L"Performance / Frame Rate",
          L"Custom frame cap (FPS, 0 = off)",
          PcSettingEditorKind::Integer, 0.0, 240.0, 1.0, {}},
+        // #3 (experimental): NVIDIA DLSS Frame Generation, generated frames per
+        // rendered frame (ReXGlue streamline_frame_generation, next start).
+        {"streamline.frame_generation", L"Performance / Frame Rate",
+         L"Frame generation (NVIDIA DLSS)", PcSettingEditorKind::IntegerChoice, 0.0, 3.0, 1.0,
+         {{"0", L"Off"}, {"1", L"2x"}, {"2", L"3x"}, {"3", L"4x"}}},
         {"display.menu_frame_rate", L"Performance / Frame Rate", L"Menu frame rate",
          PcSettingEditorKind::Choice, 0.0, 0.0, 0.0,
          {{"reduced", L"Reduced (saves power)"}, {"full", L"Same as gameplay"}}},
@@ -97,6 +102,17 @@ const std::vector<PcEditableSettingSpec>& PcEditableSettingsSchema() {
          PcSettingEditorKind::Choice, 0.0, 0.0, 0.0,
          {{"off", L"Off"}, {"taa", L"TAA"}, {"dlss", L"NVIDIA DLAA"},
           {"fsr", L"AMD FSR 3.1 (native AA)"}, {"xess", L"Intel XeSS (native AA)"}}},
+        // Run 2 (#3, #23): temporal upscaling of the finished frame (ReXGlue
+        // graphics_temporal_aa + graphics_upscale_mode, next start).
+        {"graphics.upscaler", L"Graphics Quality", L"Temporal upscaler",
+         PcSettingEditorKind::Choice, 0.0, 0.0, 0.0,
+         {{"off", L"Off"}, {"dlss", L"NVIDIA DLSS"}, {"fsr", L"AMD FSR 3.1"},
+          {"xess", L"Intel XeSS"}}},
+        {"graphics.upscale_mode", L"Graphics Quality", L"Upscaler detail",
+         PcSettingEditorKind::Choice, 0.0, 0.0, 0.0,
+         {{"native", L"Native AA (DLAA)"}, {"quality", L"Quality (1.5x)"},
+          {"balanced", L"Balanced (1.7x)"}, {"performance", L"Performance (2x)"},
+          {"ultra_performance", L"Ultra Performance (3x)"}}},
         // V376: horizontal degrees at 16:9 (the title's 70 at 4:3 = 86). The
         // pre-V376 camera.gameplay_fov never changed the view; old files keep
         // loading with it (ignored).
@@ -122,6 +138,12 @@ const std::vector<PcEditableSettingSpec>& PcEditableSettingsSchema() {
         {"input.mouse_sensitivity", L"Controls", L"Mouse sensitivity",
          PcSettingEditorKind::Number, 0.01, 10.0, 0.01, {}, true, 1.0},
         {"input.mouse_invert_y", L"Controls", L"Invert mouse Y",
+         PcSettingEditorKind::Boolean, 0.0, 1.0, 1.0, {}},
+        // Cheats on the developers' own commands (runtime_cheats.h), off by
+        // default, live in F1.
+        {"cheats.god_mode", L"Cheats", L"God mode", PcSettingEditorKind::Boolean, 0.0, 1.0, 1.0,
+         {}},
+        {"cheats.give_all", L"Cheats", L"Give all weapons and Darkness powers",
          PcSettingEditorKind::Boolean, 0.0, 1.0, 1.0, {}},
         // #22: the in-game toast for each new achievement (live).
         {"general.achievement_notifications", L"Achievements",
@@ -288,12 +310,33 @@ const PcSettingPresentation& PcSettingPresentationFor(std::string_view key) {
           L"bright flashes; use it if the glow looks wrong on your graphics card.",
           {}, {}, false, true}},
         {"graphics.motion_blur", {L"The game's camera motion blur.", {}, {}, false, false}},
+        {"streamline.frame_generation",
+         {L"Experimental. Shows extra frames that NVIDIA's AI model generates between the "
+          L"rendered ones (2x shows twice the rendered frame rate). Needs a GeForce RTX 40 or 50 "
+          L"card (3x and 4x: RTX 50) and turns NVIDIA Reflex on. The HUD and subtitles are "
+          L"generated too, so they may smear a little. Applies at the next start.",
+          {}, {}, false, false}},
         {"graphics.temporal_aa",
          {L"Removes shimmering and jagged edges by combining several frames, at the internal "
           L"scale (no upscaling). TAA is built in and works on any graphics card. NVIDIA DLAA "
           L"uses NVIDIA's AI model on GeForce RTX cards. AMD FSR 3.1 and Intel XeSS run on "
           L"most modern cards. If the chosen one can't start, TAA is used. Best with "
           L"Anti-aliasing set to Off. Applies at the next start.",
+          {}, {}, false, false}},
+        {"graphics.upscaler",
+         {L"Draws the game at the internal scale and lets the chosen upscaler build a larger, "
+          L"sharper image from several frames, so a low internal scale looks close to a higher "
+          L"one for much less graphics time. NVIDIA DLSS needs a GeForce RTX card; AMD FSR 3.1 "
+          L"and Intel XeSS run on most modern cards. The HUD and subtitles are kept from the "
+          L"game's own frame. If the upscaler can't start, the game runs as with Off. Applies at "
+          L"the next start.",
+          {}, {}, false, false}},
+        {"graphics.upscale_mode",
+         {L"How much larger the upscaled image is than the internal scale: Quality 1.5x, "
+          L"Balanced 1.7x, Performance 2x, Ultra Performance 3x (internal scale 1x with "
+          L"Performance gives a 1440p image for about the cost of 1x). Native AA keeps the size "
+          L"and only removes jagged edges and shimmering (NVIDIA DLAA with DLSS). Used only with "
+          L"a temporal upscaler. Applies at the next start.",
           {}, {}, false, false}},
         {"graphics.hd_textures",
          {L"Shows an installed HD texture pack instead of the game's own textures. Packs are "
@@ -302,6 +345,16 @@ const PcSettingPresentation& PcSettingPresentationFor(std::string_view key) {
           L"original shows until its replacement is ready) and then stays in video memory. "
           L"Off loads nothing: the game looks and runs as before.",
           {}, {}, false, false}},
+        {"cheats.god_mode",
+         {L"Nothing can kill Jackie. This is the game developers' own god mode. Not kept in "
+          L"your saves: turn it off and the game is normal again. Achievements still unlock "
+          L"while it is on.",
+          {}, {}, false, true}},
+        {"cheats.give_all",
+         {L"Gives every weapon and the highest Darkness and Demon Arm levels (the developers' "
+          L"own give-all), at each game start while on and as soon as you turn it on in game. "
+          L"This IS kept in your saves and cannot be taken back. Achievements still unlock.",
+          {}, {}, false, true}},
         {"general.achievement_notifications",
          {L"Shows \"Achievement unlocked\" with its name at the bottom right of the game when "
           L"you earn one. Your unlocks are kept either way (in the saves folder, "
@@ -378,7 +431,7 @@ const PcSettingPresentation& PcSettingPresentationFor(std::string_view key) {
 std::vector<std::wstring_view> PcEditableSettingsSections() {
     std::vector<std::wstring_view> sections{L"Language", L"Display", L"Graphics Quality",
         L"Performance / Frame Rate", L"Camera", L"Controls", L"Key bindings", L"Audio",
-        L"Achievements", L"Advanced"};
+        L"Achievements", L"Cheats", L"Advanced"};
     for (const auto& setting : PcEditableSettingsSchema()) {
         if (std::find(sections.begin(), sections.end(), setting.section) == sections.end()) {
             sections.push_back(setting.section);

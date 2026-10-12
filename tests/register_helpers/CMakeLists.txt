@@ -197,6 +197,7 @@ add_executable(runtime_import_test runtime_import_test.cpp
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_xam.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_achievement_store.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/verified_imports.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_cheats.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_video_mode.cpp")
 target_include_directories(runtime_import_test PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime"
@@ -840,6 +841,12 @@ target_include_directories(runtime_achievement_store_test PRIVATE
 target_compile_options(runtime_achievement_store_test PRIVATE /EHsc)
 target_compile_features(runtime_achievement_store_test PRIVATE cxx_std_17)
 add_test(NAME runtime_achievement_store COMMAND runtime_achievement_store_test)
+# Cheats on the title's impulses: queue, gate and god mode decisions.
+add_executable(runtime_cheats_test runtime_cheats_test.cpp)
+target_include_directories(runtime_cheats_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../runtime")
+target_compile_options(runtime_cheats_test PRIVATE /EHsc)
+target_compile_features(runtime_cheats_test PRIVATE cxx_std_17)
+add_test(NAME runtime_cheats COMMAND runtime_cheats_test)
 # #24 launcher update check: versions and the newest regular release.
 add_executable(runtime_update_check_test runtime_update_check_test.cpp
     "${CMAKE_CURRENT_LIST_DIR}/../../runtime/runtime_update_check.cpp")

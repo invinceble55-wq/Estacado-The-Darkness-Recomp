@@ -19,6 +19,7 @@
 #include "runtime_title_notifications.h"
 #include "runtime_video_mode.h"
 #include "runtime_xam.h"
+#include "runtime_cheats.h"
 
 #include <TinySHA1.hpp>
 

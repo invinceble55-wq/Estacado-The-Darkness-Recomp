@@ -32,6 +32,9 @@ component's source.
 | SMAA (Jorge Jimenez, Jose I. Echevarria, Belen Masia, Fernando Navarro, Diego Gutierrez) | MIT | ReXGlue `src/graphics/shaders/smaa` | `rexgpu-xenos.dll` |
 | AMD FidelityFX CAS and FSR 1 shaders (in Xenia's presenter) | MIT | ReXGlue `src/ui/shaders` | `rexruntime.dll` |
 | DXBC checksum (AMD; inherited from Xenia, no licence text upstream) | see source | ReXGlue `thirdparty/dxbc` | `rexgpu-xenos.dll` |
+| AMD FidelityFX SDK (FSR 3.1 upscaler runtime, signed prebuilt) | MIT | `licenses/AMD_FidelityFX_SDK_LICENSE.txt` | `amd_fidelityfx_dx12.dll` (unmodified) |
+| Intel XeSS SDK (upscaler runtime) | Intel Simplified Software License | `licenses/Intel_XeSS_SDK_LICENSE.txt` | `libxess.dll` (unmodified) |
+| NVIDIA DLSS SDK (DLSS Super Resolution runtime and the NVIDIA NGX code it is loaded through) | NVIDIA RTX SDKs License (proprietary; NOT covered by this project's MIT licence) | `licenses/NVIDIA_DLSS_SDK_LICENSE.txt`, `licenses/NVIDIA_DLSS_END_USER_TERMS.txt` | `nvngx_dlss.dll` (unmodified) and the NGX code linked into `rexgpu-xenos.dll` |
 
 The LGPL components are used unmodified. Their complete source is available
 at the locations above (and from their upstream projects); the release
@@ -42,4 +45,8 @@ disassembler (GPL-2.0-or-later, in XenonRecomp and ReXGlue `thirdparty/disasm`),
 CLI11, inja, Catch2, glslang, SPIRV tools and headers, Vulkan headers, volk
 and VMA (their own permissive licences).
 
-AMD, FidelityFX and FSR are trademarks of Advanced Micro Devices, Inc.
+AMD, FidelityFX and FSR are trademarks of Advanced Micro Devices, Inc. Intel and XeSS are trademarks of Intel Corporation.
+This product uses NVIDIA DLSS. NVIDIA, the NVIDIA logo, GeForce, GeForce RTX, RTX and DLSS are
+trademarks and/or registered trademarks of NVIDIA Corporation in the U.S. and other countries.
+The NVIDIA components are licensed by NVIDIA under its own terms; this project's open-source
+licence does not apply to them, and they may only be used as part of this application.
