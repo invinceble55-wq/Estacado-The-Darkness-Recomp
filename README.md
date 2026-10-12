@@ -168,13 +168,9 @@ request with it.
 ## Known issues
 
 - Tested on one PC only (see the note at the top).
-- Played on PC so far: every menu and the campaign from the start up to the
-  orphanage explosion scene, including the Chinatown street and its combat.
-  The chapters after that have not been played through yet. A check of
-  everything the game can ask of the port found no gap on the single-player
-  path (details in [docs/WHOLE_GAME_AUDIT.md](docs/WHOLE_GAME_AUDIT.md)); if
-  the game stops anyway, it shows a message and saves a crash report: please
-  send it.
+- The whole campaign is playable on PC from start to finish (details in
+  [docs/WHOLE_GAME_AUDIT.md](docs/WHOLE_GAME_AUDIT.md)). If the game stops
+  anyway, it shows a message and saves a crash report: please send it.
 - Multiplayer: the menus work, but there is no online or local network play.
   The port behaves like a console without a network connection: the Xbox
   LIVE modes and leaderboards ask for an Xbox LIVE sign-in and stay on the

@@ -1,5 +1,10 @@
 # Whole-game audit: can the campaign be finished without a blocker?
 
+Status (2026-10-12): yes. The whole campaign has been played on PC from
+start to finish and is playable. If the game stops anyway, it shows a message
+and saves a crash report: please send it. The sections below are the
+evidence gathered before that playthrough (2026-09-28 onward).
+
 Question (2026-09-28): can the whole game be played through, for example
 Chapter 3, without a stop? Only the Chapter 1 opening, the Chinatown street
 and its combat had been played on PC. This audit answers with evidence:
@@ -96,7 +101,8 @@ handlers, 41 callers), `XamLoaderTerminateTitle`, `XamLoaderLaunchTitle`,
 
 The campaign has 27 worlds (NY1 x9, SUB x2, NY2 x5, OW1 x5, OW2 x3, NY3 x3,
 named by the load lists in `Content\Xdf`); each has its own packs on the disc
-and loads through the same file system. Tested on PC so far: a new game from
+and loads through the same file system. The whole campaign has been played on
+PC from start to finish (2026-10); the automated tests cover a new game from
 its start (NY1_Tunnel), the Chapter 1 opening ride, and NY1_Chinatown (street,
 combat), plus every menu.
 
@@ -138,10 +144,9 @@ or later-level content (scripted events, enemies, weapons, the Otherworld).
 
 - Multiplayer: the menus work, but there is no online or local network play:
   the port behaves like a console without a network connection.
-- Chapters after the first have not been played through on PC yet. Nothing
-  in this audit points to a stop on the single-player path, but a trapped
-  call in untested code would stop the game with a crash report; please send
-  it.
+- The whole campaign is playable on PC from start to finish. If the game
+  stops anyway (for example a trapped call in a rarely used path), it shows
+  a message and saves a crash report: please send it.
 
 ## 8. Closing the gap: coverage from saved games
 
