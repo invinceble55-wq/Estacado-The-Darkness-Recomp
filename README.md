@@ -10,6 +10,9 @@ This is a free, non-commercial fan project. **No game data is included:** you
 need your own copy of the game (see [Game files](#game-files) and
 [Legal](#legal)).
 
+Estacado is and will stay free. If you enjoy it and want to support my work:
+[ko-fi.com/invinceble55wq](https://ko-fi.com/invinceble55wq)
+
 > **Pre-release.** So far it has been tested on one Windows 11 PC with an
 > NVIDIA RTX graphics card. Other hardware (AMD, Intel, older NVIDIA, laptops)
 > is untested. Please report what you find.
