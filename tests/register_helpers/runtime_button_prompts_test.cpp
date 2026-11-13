@@ -66,25 +66,61 @@ int main() {
     RuntimeNoteInputActivity(false, true);
     Check(g_noted_device == 0, "and only once");
 
-    const std::string labels = "a=E\nb=Shift\ny=Space\nlstick_press=C\nright_trigger=LMB\n"
-                               "dpad_up=Up\nx=\n";
-    const auto press = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_BUTTON_1_A", labels);
-    Check(press && *press == u"Press \u00A7p0", "the button template reads like the PC one");
-    const auto hold = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_BUTTON_2_C2", labels);
-    Check(hold && *hold == u"holding \u00A7p0", "hold forms keep their verb");
-    const auto pull = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_TRIGGER_B", labels);
-    Check(pull && *pull == u"press \u00A7p0", "triggers are pressed keys");
-    const auto a = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_00", labels);
-    Check(a && *a == u"E", "the A button reads as its key");
-    const auto jump = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_03", labels);
-    Check(jump && *jump == u"Space", "the Y button reads as Space");
-    const auto click = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_06", labels);
-    Check(click && *click == u"C", "the left stick click reads as its key");
-    const auto fire = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_0B", labels);
-    Check(fire && *fire == u"LMB", "the right trigger reads as the mouse button");
-    const auto up = RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_10", labels);
-    Check(up && *up == u"Up", "the D-pad reads as its key");
-    Check(!RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_02", labels),
+    struct TemplateCase {
+        const char* suffix;
+        const char16_t* text;
+    };
+    constexpr TemplateCase buttonTemplates[] = {
+        {"A", u"Press \u00A7p0"},   {"A2", u"Hold \u00A7p0"},
+        {"B", u"press \u00A7p0"},   {"B2", u"hold \u00A7p0"},
+        {"C", u"pressing \u00A7p0"}, {"C2", u"holding \u00A7p0"},
+    };
+    for (int group = 1; group <= 3; ++group) {
+        for (const auto& test : buttonTemplates) {
+            const std::string key =
+                "CONTROLLER_XBOX_BUTTON_" + std::to_string(group) + "_" + test.suffix;
+            const auto text = RuntimeKeyboardPromptTextFor(key, {});
+            Check(text && *text == test.text, key.c_str());
+        }
+    }
+    constexpr TemplateCase otherTemplates[] = {
+        {"TRIGGER_A", u"Press \u00A7p0"}, {"TRIGGER_B", u"press \u00A7p0"},
+        {"TRIGGER_C", u"pressing \u00A7p0"},
+        {"THUMBSTICK_CLICK_A", u"Press \u00A7p0"},
+        {"THUMBSTICK_CLICK_B", u"press \u00A7p0"},
+        {"THUMBSTICK_CLICK_C", u"pressing \u00A7p0"},
+        {"DPAD_A", u"Press \u00A7p0"}, {"DPAD_B", u"press \u00A7p0"},
+        {"DPAD_C", u"pressing \u00A7p0"},
+    };
+    for (const auto& test : otherTemplates) {
+        const std::string key = "CONTROLLER_XBOX_" + std::string(test.suffix);
+        const auto text = RuntimeKeyboardPromptTextFor(key, {});
+        Check(text && *text == test.text, key.c_str());
+    }
+
+    const std::string labels =
+        "a=E\nb=Shift\nx=R\ny=Space\nstart=Escape\nback=Tab\nlstick_press=C\n"
+        "rstick_press=MMB\nleft_shoulder=Q\nright_shoulder=WheelUp\nleft_trigger=LMB\n"
+        "right_trigger=RMB\ndpad_up=1\ndpad_right=Right\ndpad_down=2\ndpad_left=Left\n";
+    struct ButtonCase {
+        const char* key;
+        const char16_t* label;
+    };
+    constexpr ButtonCase buttons[] = {
+        {"CONTROLLER_XBOX_00", u"E"},       {"CONTROLLER_XBOX_01", u"Shift"},
+        {"CONTROLLER_XBOX_02", u"R"},       {"CONTROLLER_XBOX_03", u"Space"},
+        {"CONTROLLER_XBOX_04", u"Escape"},  {"CONTROLLER_XBOX_05", u"Tab"},
+        {"CONTROLLER_XBOX_06", u"C"},       {"CONTROLLER_XBOX_07", u"MMB"},
+        {"CONTROLLER_XBOX_08", u"Q"},       {"CONTROLLER_XBOX_09", u"WheelUp"},
+        {"CONTROLLER_XBOX_0A", u"LMB"},     {"CONTROLLER_XBOX_0B", u"RMB"},
+        {"CONTROLLER_XBOX_10", u"1"},       {"CONTROLLER_XBOX_11", u"Right"},
+        {"CONTROLLER_XBOX_12", u"2"},       {"CONTROLLER_XBOX_13", u"Left"},
+    };
+    for (const auto& test : buttons) {
+        const auto text = RuntimeKeyboardPromptTextFor(test.key, labels);
+        Check(text && *text == test.label, test.key);
+    }
+    Check(!RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_02", "x=\n"),
           "an unbound button keeps the title's name");
     Check(!RuntimeKeyboardPromptTextFor("CONTROLLER_XBOX_THUMBSTICK_A", labels),
           "stick movement keeps the title's text");
